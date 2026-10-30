@@ -34,6 +34,9 @@ streamlit run streamlit_app.py
 # then open http://localhost:8501
 ```
 
+If `streamlit` isn't on your `PATH` (common on Windows when pip installs into
+`%APPDATA%\Python\...\Scripts`), use `python -m streamlit run streamlit_app.py`.
+
 Streamlit cannot render a static site natively, so `streamlit_app.py` keeps this
 site as-is and frames it full-viewport:
 
