@@ -6,6 +6,8 @@ A working front-end for the LoopGrid smart waste exchange — built for the **Ha
 
 The site has two parts: a marketing/overview page and a fully interactive product demo (household, society and business views).
 
+For the architecture, the AI track and the honest demo-vs-production split, read [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ---
 
 ## Run it
