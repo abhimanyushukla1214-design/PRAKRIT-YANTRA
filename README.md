@@ -26,7 +26,7 @@ python -m http.server 5173
 # then open http://localhost:5173
 ```
 
-Camera access requires `localhost` or HTTPS in most browsers. The demo works without a camera — use the seven sample items.
+Camera access requires `localhost` or HTTPS in most browsers. The demo works without a camera — use the 13 sample items.
 
 **Option 3 — Streamlit**
 
@@ -73,29 +73,31 @@ No secrets or API keys are needed.
 |---|---|
 | Overview (`#landing`) | Pitch, problem chain, six-step loop, B2C/B2B/ops layers, modelled impact, pricing |
 | Overview | Dashboard with carbon ring, green points wallet, bin fill sensors, activity, onboarding checklist |
-| Scan & sort | Simulated classifier: 7 sample items, confidence gate, bin, resale value, recovery score, confirm → listing |
+| Scan & sort | Simulated calibrated classifier: 13 sample items, 90% conformal prediction set, hazardous override, unknown/OOD path, bin, resale band, recovery score, confirm → listing |
 | Marketplace | Filterable listings, search, verified toggle, save/shortlist, listing detail modal with QR + hash timeline |
 | Routes & bins | Stylised South Delhi map, fill levels, route optimiser, skip-under-40% toggle, overflow prediction |
-| Impact | Role-based metrics, monthly diversion chart, material donut, society leaderboard, traceability ledger, CSV export |
+| Impact | Role-based metrics, monthly diversion chart, material donut, source-level quality score, society leaderboard, traceability ledger, CSV export |
 
 **Demo script for judges (≈90 seconds)**
 
 1. Landing → **Open live demo**.
-2. **Scan & sort** → choose *PET bottle* → **Classify item** → **Confirm & list**.
+2. **Scan & sort** → choose *PET bottle* → **Classify item**. The card shows a **90% conformal set with one class**, so it auto-routes. → **Confirm & list**.
 3. You land in **Marketplace** with the new listing at the top.
 4. Open a listing → show QR, status timeline, **Accept pickup**.
-5. **Routes & bins** → **Optimise route** → 14.2 km → 9.6 km, 3 low bins skipped.
-6. **Impact** → switch Household / Society / Business → **Export ESG report**.
-7. Optional: topbar role switch, **Redeem** points, mobile bottom nav.
+5. Back on **Scan & sort**, open *Hard cases* → **Battery** → **Request certified pickup** (no points, no listing). Then **Unknown** → **Needs review** (empty set, no auto-route).
+6. **Routes & bins** → **Optimise route** → 14.2 km → 9.6 km, 3 low bins skipped.
+7. **Impact** → point at the **source quality score** (contamination % → score/100) → switch Household / Society / Business → **Export ESG report**.
+8. Optional: topbar role switch, **Redeem** points, mobile bottom nav.
 
 ---
 
 ## Honest demo notes
 
-- The classifier is **scripted on seven sample items**, not a trained model. It is labelled as a demo model in the UI.
+- The classifier is **scripted on 13 sample items**, not a trained model. It is labelled as a demo model in the UI.
+- The conformal set is **scripted data that follows the real contract** (one class → auto-route, several → user picks, empty → human review). No calibration set exists yet.
 - Bin fill levels and sensor pings are **simulated**; the UI says so.
 - Routing numbers (14.2 → 9.6 km, fuel, CO₂e) are modelled, not measured.
-- Marketplace sellers, weights, hashes and ESG rows are demo data.
+- Marketplace sellers, weights, hashes, source quality scores and ESG rows are demo data. The scoring rule is printed on the card.
 - Camera preview is real (`getUserMedia`) but classification still maps to the sample set.
 
 This is deliberate: the deck and the app should not claim a model or hardware that does not exist yet.
@@ -154,7 +156,7 @@ No frameworks, no bundler, no network dependency except the Google Fonts link (f
 
 ## Notes for the next iteration
 
-- Replace the scripted classifier with a MobileNet/TrashNet model served from a small FastAPI endpoint.
+- Replace the scripted classifier with a calibrated MobileNetV3-Small (temperature scaling + a 90% conformal gate) served from a small FastAPI endpoint.
 - Swap the SVG map for Leaflet + OpenStreetMap and an OR-Tools routing call.
 - Persist listings, points and saved items (currently in-memory so every demo starts clean).
-- Wire the QR hash chain to a real append-only table before calling the ESG export audited.
+- Replace the demo hash chain with dual-signed Ed25519 handoffs and a daily Merkle anchor before calling the ESG export audited.

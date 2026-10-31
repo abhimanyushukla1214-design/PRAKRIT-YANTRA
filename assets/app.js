@@ -33,6 +33,9 @@
   const fmt = (n, decimals = 0) =>
     Number(n).toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
+  /* Keep narrow price bands readable: ₹1.7–2.3 for cheap streams, ₹19–25 above ₹10. */
+  const bandEdge = (v) => (v < 10 ? v.toFixed(1).replace(/\.0$/, '') : String(Math.round(v)));
+
   const esc = (str) => String(str).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
@@ -40,48 +43,101 @@
   /* ---------------------------------------------------------
      Data — materials
      --------------------------------------------------------- */
+  /* Conformal prediction at 90% coverage. `set` is the returned class set:
+     one class → auto-route, several → ask the user, empty → human review.
+     `p` is the temperature-scaled top probability, not a raw softmax score. */
   const SAMPLES = {
     pet: {
       name: 'PET bottle', emoji: '🧴', category: 'Plastic', thumb: 'plastic',
-      bin: 'Blue bin — dry recyclable', binClass: 'blue', confidence: 96,
-      price: 22, points: 40, co2: 1.9, mrs: 88, warn: false,
+      bin: 'Blue bin — dry recyclable', binClass: 'blue',
+      set: ['PET'], p: 0.91, grade: 'A', contamination: ['clean'],
+      price: 22, points: 40, co2: 1.9, co2Band: [1.4, 2.2], mrs: 88,
       tip: 'Empty and rinse the bottle, remove the cap and label. Bale with other PET — clean PET fetches roughly 30% more per kilo.'
     },
     cardboard: {
       name: 'Cardboard', emoji: '📦', category: 'Paper', thumb: 'paper',
-      bin: 'Blue bin — dry recyclable', binClass: 'blue', confidence: 94,
-      price: 14, points: 25, co2: 1.1, mrs: 84, warn: false,
+      bin: 'Blue bin — dry recyclable', binClass: 'blue',
+      set: ['Paper / cardboard'], p: 0.89, grade: 'A', contamination: ['clean'],
+      price: 14, points: 25, co2: 1.1, co2Band: [0.9, 1.4], mrs: 84,
       tip: 'Flatten and keep it bone dry. One wet corner drops the whole bundle to "mixed" and kills the resale price.'
     },
     food: {
       name: 'Food scraps', emoji: '🍌', category: 'Organics', thumb: 'organics',
-      bin: 'Green bin — wet / organic', binClass: 'green', confidence: 91,
-      price: 4, points: 15, co2: 0.7, mrs: 76, warn: false,
+      bin: 'Green bin — wet / organic', binClass: 'green',
+      set: ['Organics'], p: 0.93, grade: 'B', contamination: ['food residue', 'wet'],
+      price: 4, points: 15, co2: 0.7, co2Band: [0.5, 0.9], mrs: 76,
       tip: 'No plastic bags, no oil sachets. This stream goes to the society composter and comes back as garden soil in 6 weeks.'
     },
     textile: {
       name: 'Textile offcuts', emoji: '🧵', category: 'Textile', thumb: 'textile',
-      bin: 'White sack — reuse / recycling', binClass: 'grey', confidence: 89,
-      price: 18, points: 30, co2: 3.6, mrs: 86, warn: false,
+      bin: 'White sack — reuse / recycling', binClass: 'grey',
+      set: ['Textile'], p: 0.87, grade: 'A', contamination: ['clean'],
+      price: 18, points: 30, co2: 3.6, co2Band: [2.8, 4.4], mrs: 86,
       tip: 'Keep dry and bag by fibre type. Cotton and denim have the strongest buyer demand; mixed synthetics are downcycled.'
     },
     ewaste: {
       name: 'E-waste', emoji: '🔌', category: 'E-waste', thumb: 'ewaste',
-      bin: 'E-waste drop-off — hazardous', binClass: 'red', confidence: 92,
-      price: 65, points: 60, co2: 4.2, mrs: 93, warn: false,
+      bin: 'E-waste drop-off — hazardous', binClass: 'red',
+      set: ['E-waste'], p: 0.92, grade: 'A', contamination: ['clean'], hazard: true,
+      price: 65, points: 0, co2: 4.2, co2Band: [3.4, 5.1], mrs: 93,
       tip: 'Never put this in a dry bin. Wipe your data, keep the charger with the device, and hand it to a CPCB-registered recycler.'
     },
     glass: {
       name: 'Glass jar', emoji: '🫙', category: 'Glass', thumb: 'glass',
-      bin: 'Blue bin — glass crate', binClass: 'blue', confidence: 93,
-      price: 3, points: 20, co2: 0.9, mrs: 80, warn: false,
+      bin: 'Blue bin — glass crate', binClass: 'blue',
+      set: ['Glass'], p: 0.90, grade: 'A', contamination: ['clean'],
+      price: 3, points: 20, co2: 0.9, co2Band: [0.7, 1.2], mrs: 80,
       tip: 'Rinse and remove the metal lid. Wrap broken glass in paper before placing it — collectors handle this stream by hand.'
     },
     mixed: {
       name: 'Mixed bag', emoji: '🗑️', category: 'Contaminated', thumb: 'organics',
-      bin: 'Needs sorting first', binClass: 'red', confidence: 41,
-      price: 0, points: 0, co2: 0, mrs: 34, warn: true,
-      tip: 'This bag has food waste touching paper and plastic. Below the 70% confidence gate, so LoopGrid will not list it. Split dry, wet and hazardous into three bags first.'
+      bin: 'Needs sorting first', binClass: 'red',
+      set: ['Multilayer packaging', 'PP / mixed plastic', 'Paper / cardboard'], p: 0.41, grade: 'reject',
+      contamination: ['food residue', 'mixed material'], warn: true,
+      price: 0, points: 0, co2: 0, co2Band: [0, 0], mrs: 34,
+      tip: 'The 90% set has three materials, so LoopGrid will not route or list it. Split dry, wet and hazardous into three bags first.'
+    },
+    multilayer: {
+      name: 'Multilayer wrapper', emoji: '🍟', category: 'Multilayer', thumb: 'plastic',
+      bin: 'Reject — no local recycling stream', binClass: 'red',
+      set: ['Multilayer packaging'], p: 0.88, grade: 'reject', contamination: ['mixed material'],
+      price: 0, points: 0, co2: 0, co2Band: [0, 0], mrs: 18, warn: true,
+      tip: 'Chip and biscuit wrappers are foil laminated to plastic. Delhi has no viable stream for them, so the honest answer is "reject", not "recycle".'
+    },
+    tetrapak: {
+      name: 'Tetra Pak carton', emoji: '🥛', category: 'Multilayer', thumb: 'paper',
+      bin: 'Special stream — named buyers only', binClass: 'grey',
+      set: ['Tetra Pak', 'Multilayer packaging'], p: 0.72, grade: 'C', contamination: ['food residue'],
+      price: 2, points: 5, co2: 0.4, co2Band: [0.2, 0.6], mrs: 30,
+      tip: 'Rinse, flatten and keep separate. Only a few Delhi buyers take cartons, so LoopGrid holds it until a standing order exists.'
+    },
+    thermocol: {
+      name: 'Thermocol', emoji: '🧊', category: 'Reject', thumb: 'plastic',
+      bin: 'Reject — no local buyer', binClass: 'red',
+      set: ['Thermocol'], p: 0.85, grade: 'reject', contamination: ['mixed material'],
+      price: 0, points: 0, co2: 0, co2Band: [0, 0], mrs: 12, warn: true,
+      tip: 'Fragile and almost impossible to densify locally. Do not put it in the dry bin — it shatters into pieces that contaminate the whole load.'
+    },
+    battery: {
+      name: 'Battery', emoji: '🔋', category: 'Hazardous', thumb: 'ewaste',
+      bin: 'Certified handler only', binClass: 'red',
+      set: ['Batteries'], p: 0.94, grade: 'A', contamination: ['hazardous present'], hazard: true,
+      price: 0, points: 0, co2: 0, co2Band: [0, 0], mrs: 95,
+      tip: 'Lithium cells can catch fire in a truck. No points are awarded for hazardous disposal — that would reward unsafe handling.'
+    },
+    sanitary: {
+      name: 'Sanitary waste', emoji: '🩹', category: 'Hazardous', thumb: 'ewaste',
+      bin: 'Certified handler only', binClass: 'red',
+      set: ['Sanitary / biomedical'], p: 0.90, grade: 'reject', contamination: ['hazardous present'],
+      hazard: true, price: 0, points: 0, co2: 0, co2Band: [0, 0], mrs: 0,
+      tip: 'Wrap and hand to a biomedical waste handler. It must never enter a dry or wet bin, and it is never listed for sale.'
+    },
+    unknown: {
+      name: 'Unrecognised item', emoji: '❓', category: 'Unknown', thumb: 'organics',
+      bin: 'Needs human review', binClass: 'grey',
+      set: [], p: 0.22, grade: 'unknown', contamination: [], unknown: true,
+      price: 0, points: 0, co2: 0, co2Band: [0, 0], mrs: 0,
+      tip: 'The conformal set is empty, so the model is out of its depth. Nothing is routed automatically — pick the material manually.'
     }
   };
 
@@ -165,6 +221,15 @@
     { name: 'Saket Community', sub: '196 households', value: '2.74', s: .8 },
     { name: 'IIT Delhi Hostel 4', sub: '128 residents', value: '2.51', s: .73 },
     { name: 'Dwarka Co-op', sub: '540 households', value: '2.30', s: .67 }
+  ];
+
+  /* Source-level quality score: score = 100 − contamination%×1.5 − reject%×2.0. */
+  const SOURCES = [
+    { name: 'Hauz Khas Enclave', sub: '312 households · 4,180 kg', contamination: 3.2, rejects: 1.1 },
+    { name: 'Green Park Society', sub: '240 households · 2,960 kg · you', contamination: 6.4, rejects: 2.8, me: true },
+    { name: 'Vasant Kunj RWA', sub: '480 households · 5,240 kg', contamination: 8.1, rejects: 3.4 },
+    { name: 'Saket Community', sub: '196 households · 1,880 kg', contamination: 11.6, rejects: 4.9 },
+    { name: 'Dwarka Co-op', sub: '540 households · 4,020 kg', contamination: 16.3, rejects: 7.2 }
   ];
 
   const LEDGER = [
@@ -521,6 +586,7 @@
     const s = SAMPLES[key];
     if (!s) return;
     state.sample = key;
+    state.pick = null;
     $$('.sample').forEach((b) => b.classList.toggle('active', b.dataset.sample === key));
     const item = $('#vfItem');
     if (item) {
@@ -569,29 +635,59 @@
   function renderScanResult(key) {
     const s = SAMPLES[key];
     state.lastResult = key;
+    state.scanKey = key;
     const body = $('#resultBody');
     body.hidden = false;
+
+    const set = s.set || [];
+    const size = set.length;
+    const picked = state.pick && set.includes(state.pick) ? state.pick : null;
+    const band = s.price ? `₹${bandEdge(s.price * 0.85)}–${bandEdge(s.price * 1.15)}` : '—';
+    const co2 = s.co2Band && s.co2Band[1]
+      ? `−${(s.co2Band[0] * 25).toFixed(0)}–${(s.co2Band[1] * 25).toFixed(0)} kg`
+      : '—';
+
+    const setNote = s.unknown
+      ? 'Empty set — the item is outside the model’s known classes. Nothing is routed automatically.'
+      : s.warn
+        ? size === 1
+          ? 'One class in the set, but this material has no viable Delhi recycling stream. Nothing is listed.'
+          : `${size} possible materials, and the bag is contaminated. The pick is logged, but the listing stays blocked until it is sorted.`
+        : size === 1
+          ? 'One class in the set — safe to route automatically.'
+          : `${size} possible materials. Pick the one you are holding; the choice is logged for review.`;
+
     body.innerHTML = `
       <div class="result-head">
         <div class="result-cat">
           <span class="result-emoji">${s.emoji}</span>
-          <div><h2>${s.name}</h2><p>${s.category} · ${s.warn ? 'contaminated stream' : 'dry / recoverable'}</p></div>
+          <div>
+            <h2>${s.name}</h2>
+            <p>${s.category} · grade ${s.grade}${s.contamination.length ? ' · ' + s.contamination.join(', ') : ''}</p>
+          </div>
         </div>
-        <span class="confidence">${s.confidence}% match</span>
+        <span class="set-badge ${size === 1 ? '' : 'warn'}">90% set · ${size} ${size === 1 ? 'class' : 'classes'}</span>
+      </div>
+
+      <div class="set-block">
+        <div class="set-label"><span>Conformal prediction set</span><span>90% coverage</span></div>
+        <div class="set-row">
+          ${size
+            ? set.map((c) => `<button class="set-chip ${picked === c || size === 1 ? 'on' : ''}" data-pick="${c}" ${size === 1 ? 'disabled' : ''}>${c}</button>`).join('')
+            : '<span class="set-chip empty">∅ no confident class</span>'}
+        </div>
+        <p class="set-note">${setNote}</p>
       </div>
 
       <div class="bin-pill ${s.binClass}">♻️ ${s.bin}</div>
 
-      <div>
-        <div class="conf-label"><span>Classifier confidence</span><span>${s.confidence >= 70 ? 'Above 70% gate' : 'Below 70% gate'}</span></div>
-        <div class="conf-bar"><i style="--s:${s.confidence / 100}"></i></div>
+      <div class="result-grid">
+        <div class="result-cell"><span>Resale band</span><b class="good">${band}${s.price ? '/kg' : ''}</b></div>
+        <div class="result-cell"><span>Green points</span><b class="good">${s.points ? '+' + s.points : '—'}</b></div>
+        <div class="result-cell"><span>CO₂e / 25 kg</span><b>${co2}</b></div>
       </div>
 
-      <div class="result-grid">
-        <div class="result-cell"><span>Resale</span><b class="good">${s.price ? '₹' + s.price + '/kg' : '—'}</b></div>
-        <div class="result-cell"><span>Green points</span><b class="good">${s.points ? '+' + s.points : '—'}</b></div>
-        <div class="result-cell"><span>CO₂e avoided</span><b>${s.co2 ? '−' + s.co2 + ' kg' : '—'}</b></div>
-      </div>
+      <p class="weight-note">Weight 18–32 kg estimated from the photo · settled on the collector’s scale at pickup.</p>
 
       <div class="mrs-row">
         <span class="mrs-label">Material recovery</span>
@@ -599,20 +695,24 @@
         <b>${s.mrs}</b>
       </div>
 
+      ${s.hazard ? `<div class="hazard-banner">${icon('alert')}<span><b>Hazardous stream.</b> No marketplace listing and no points — this goes to a CPCB-certified handler only.</span></div>` : ''}
+
       <div class="tip-box ${s.warn ? 'warn' : ''}">
         ${icon(s.warn ? 'alert' : 'spark')}
         <span>${s.tip}</span>
       </div>
 
       <div class="result-actions">
-        <button class="btn btn-outline" data-scan-retake>${s.warn ? 'Retake' : 'Scan again'}</button>
-        <button class="btn btn-primary" data-scan-confirm>${s.warn ? 'Sort first' : 'Confirm &amp; list'}</button>
+        <button class="btn btn-outline" data-scan-retake>Scan again</button>
+        <button class="btn btn-primary" data-scan-confirm ${size > 1 && !picked ? 'disabled' : ''}>${
+          s.hazard ? 'Request certified pickup'
+          : s.unknown ? 'Needs review'
+          : s.warn ? 'Sort first'
+          : size > 1 && !picked ? 'Pick a material'
+          : 'Confirm &amp; list'
+        }</button>
       </div>
     `;
-    requestAnimationFrame(() => {
-      const fill = body.querySelector('.conf-bar i');
-      if (fill) fill.style.transform = `scaleX(${s.confidence / 100})`;
-    });
   }
 
   function resetScan() {
@@ -620,6 +720,7 @@
     $('#resultEmpty').hidden = false;
     $('#resultLoading').hidden = true;
     state.lastResult = null;
+    state.pick = null;
     const tag = $('#vfTag');
     if (tag) tag.textContent = 'READY';
   }
@@ -628,10 +729,38 @@
     const key = state.lastResult;
     if (!key) return;
     const s = SAMPLES[key];
-    if (s.warn) {
-      toast('Cannot list a mixed bag', 'Split dry, wet and hazardous waste first. The 70% gate protects buyers from contaminated loads.', 'warn');
+
+    if (s.unknown) {
+      toast('Needs human review', 'The prediction set is empty, so nothing is auto-routed. Pick the material from the manual list below.', 'warn');
       return;
     }
+    if (s.hazard) {
+      toast('Certified pickup requested', `${s.name} · no points awarded. A CPCB-registered handler will collect within 24 h.`, 'warn');
+      ACTIVITY.unshift({ icon: '☣️', text: `<b>${s.name}</b> routed to a certified handler`, time: 'Just now' });
+      renderActivity();
+      const hb = $('[data-scan-confirm]');
+      if (hb) {
+        hb.disabled = true;
+        hb.innerHTML = `${icon('check')} Pickup requested`;
+      }
+      return;
+    }
+    if (s.warn) {
+      const mixed = s.name === 'Mixed bag';
+      toast(
+        mixed ? 'Sort this bag first' : 'No recycling stream',
+        mixed
+          ? 'Dry, wet and hazardous material are touching, so the bag cannot be listed as one lot. Split it into three bags and scan again.'
+          : `${s.name} is rejected — there is no viable Delhi buyer. Keep it out of the dry bin so it cannot contaminate the load.`,
+        'warn'
+      );
+      return;
+    }
+    if (s.set.length > 1 && !state.pick) {
+      toast('Pick the material', 'The 90% set has more than one class. Choose the one you are holding so the override can be logged.', 'warn');
+      return;
+    }
+
     const btn = $('[data-scan-confirm]');
     if (btn) {
       btn.disabled = true;
@@ -640,9 +769,10 @@
 
     await wait(700);
 
+    const material = state.pick || s.name;
     const listing = {
       id: 'LG-' + (1043 + state.listings.length),
-      material: s.name === 'PET bottle' ? 'PET bottles' : s.name,
+      material: material === 'PET bottle' ? 'PET bottles' : material,
       category: s.category,
       emoji: s.emoji,
       thumb: s.thumb,
@@ -654,16 +784,19 @@
       verified: true,
       score: s.mrs,
       posted: 'Just now',
+      fresh: Date.now(),
       status: 'Listed',
       co2: Math.round(25 * s.co2),
-      note: 'Added from a camera scan. Rinsed and sorted.'
+      note: state.pick
+        ? `Override: user picked ${material} from the 90% set. Logged for review.`
+        : 'Added from a camera scan. Rinsed and sorted.'
     };
     state.listings.unshift(listing);
     state.points += s.points;
     ROLE_DATA.household.carbon = +(ROLE_DATA.household.carbon + s.co2).toFixed(1);
     state.carbon = ROLE_DATA.household.carbon;
 
-    ACTIVITY.unshift({ icon: '📸', text: `Scanned <b>${s.name}</b> → ${listing.id} created`, time: 'Just now' });
+    ACTIVITY.unshift({ icon: '📸', text: `Scanned <b>${material}</b> → ${listing.id} created`, time: 'Just now' });
 
     updateHomeStats();
     renderActivity();
@@ -677,7 +810,11 @@
       btn.classList.remove('btn-primary');
       btn.classList.add('btn-soft');
     }
-    toast('Listing created', `${s.name} · 25 kg · ${listing.id}. Matched to 3 verified buyers.`);
+    toast(
+      state.pick ? 'Listing created · override logged' : 'Listing created',
+      `${material} · 25 kg · ${listing.id}. Matched to 3 verified buyers.`
+    );
+    state.pick = null;
     setTimeout(() => navigate('market'), 900);
   }
 
@@ -762,8 +899,8 @@
       return true;
     });
     const sorters = {
-      // Fresh listings get a small recency boost so a just-published item is visible.
-      match: (a, b) => (b.score + (b.posted === 'Just now' ? 10 : 0)) - (a.score + (a.posted === 'Just now' ? 10 : 0)),
+      // A just-published listing sits at the top, then the rest rank by match score.
+      match: (a, b) => (b.fresh || 0) - (a.fresh || 0) || b.score - a.score,
       distance: (a, b) => a.distance - b.distance,
       price: (a, b) => b.price - a.price,
       qty: (a, b) => b.qty - a.qty
@@ -885,6 +1022,7 @@
       verified: true,
       score: 90 + Math.round(Math.random() * 8),
       posted: 'Just now',
+      fresh: Date.now(),
       status: 'Listed',
       co2: Math.round(qty * 1.6),
       note: note || 'Freshly listed from the app.'
@@ -1082,6 +1220,21 @@
     }
   }
 
+  function renderSourceScore() {
+    const host = $('#sourceList');
+    if (!host) return;
+    host.innerHTML = SOURCES.map((s) => {
+      const score = Math.max(0, Math.min(100, Math.round(100 - s.contamination * 1.5 - s.rejects * 2.0)));
+      return `
+        <div class="source-row ${s.me ? 'me' : ''}">
+          <span class="source-name"><b>${s.name}</b><small>${s.sub}</small></span>
+          <span class="source-contam">contam. <b>${s.contamination.toFixed(1)}%</b></span>
+          <span class="source-bar"><i style="--s:${score / 100}"></i></span>
+          <span class="source-score-val">${score}<small>/100</small></span>
+        </div>`;
+    }).join('');
+  }
+
   function renderLeaderboard() {
     const host = $('#leaderList');
     if (!host) return;
@@ -1114,6 +1267,7 @@
     if (note) note.textContent = d.note;
     renderBars(role);
     renderDonut(role);
+    renderSourceScore();
     renderLeaderboard();
     renderLedger();
   }
@@ -1206,6 +1360,13 @@
       const accept = e.target.closest('[data-accept]');
       if (accept) { acceptPickup(accept.dataset.accept); return; }
 
+      const chip = e.target.closest('[data-pick]');
+      if (chip) {
+        state.pick = chip.dataset.pick;
+        renderScanResult(state.scanKey || state.lastResult);
+        return;
+      }
+
       if (e.target.closest('[data-scan-confirm]')) { confirmScan(); return; }
       if (e.target.closest('[data-scan-retake]')) { resetScan(); classify(); return; }
 
@@ -1256,9 +1417,13 @@
       }
     });
 
-    $('#samples').addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-sample]');
-      if (btn) setSample(btn.dataset.sample);
+    ['#samples', '#samplesHard'].forEach((sel) => {
+      const host = $(sel);
+      if (!host) return;
+      host.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-sample]');
+        if (btn) setSample(btn.dataset.sample);
+      });
     });
 
     $('#classifyBtn').addEventListener('click', classify);

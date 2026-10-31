@@ -100,7 +100,7 @@
           <div class="scan-card">
             <div class="scan-card-top">
               <span class="mini-label"><span class="live-dot"></span> Live classification</span>
-              <span class="mini-chip">96% match</span>
+              <span class="mini-chip">90% set · 1 class</span>
             </div>
             <div class="scan-frame">
               <div class="scan-frame-item">🧴</div>
@@ -230,7 +230,7 @@
           <div><b>18.6 t</b><span>material recovered</span></div>
           <div><b>₹3.4 L</b><span>value returned to sellers</span></div>
           <div><b>1,140 km</b><span>collection distance avoided</span></div>
-          <div><b>96%</b><span>pickup traceability</span></div>
+          <div><b>2-of-2</b><span>co-signed handoffs</span></div>
         </div>
       </div>
     </section>
@@ -471,7 +471,7 @@
           <section class="card scan-stage">
             <div class="stage-head">
               <span class="mini-label"><span class="live-dot"></span> Viewfinder</span>
-              <span class="stage-hint" id="stageHint">Demo classifier · 7 sample items</span>
+              <span class="stage-hint" id="stageHint">Demo classifier · 13 sample items</span>
             </div>
             <div class="viewfinder" id="viewfinder">
               <video id="camera" autoplay playsinline muted hidden></video>
@@ -498,7 +498,16 @@
               <button class="sample" data-sample="glass"><span>🫙</span>Glass jar</button>
               <button class="sample" data-sample="mixed"><span>🗑️</span>Mixed bag</button>
             </div>
-            <p class="stage-note"><svg class="icon"><use href="#i-shield"/></svg> On-device inference in production. This demo runs a scripted classifier on the samples above.</p>
+            <div class="samples samples-hard" id="samplesHard">
+              <span class="samples-label">Hard cases</span>
+              <button class="sample" data-sample="multilayer"><span>🍟</span>Chip wrapper</button>
+              <button class="sample" data-sample="tetrapak"><span>🥛</span>Tetra Pak</button>
+              <button class="sample" data-sample="thermocol"><span>🧊</span>Thermocol</button>
+              <button class="sample" data-sample="battery"><span>🔋</span>Battery</button>
+              <button class="sample" data-sample="sanitary"><span>🩹</span>Sanitary waste</button>
+              <button class="sample" data-sample="unknown"><span>❓</span>Unknown</button>
+            </div>
+            <p class="stage-note"><svg class="icon"><use href="#i-shield"/></svg> On-device inference in production. This demo runs a scripted classifier and a scripted 90% conformal set.</p>
           </section>
 
           <section class="card scan-result" id="scanResult">
@@ -507,8 +516,8 @@
               <h2>No scan yet</h2>
               <p>Pick a sample or enable the camera, then hit <b>Classify item</b>. The result appears here with bin, value and buyer fit.</p>
               <div class="empty-hints">
-                <span><svg class="icon"><use href="#i-zap"/></svg> ~1.8s inference</span>
-                <span><svg class="icon"><use href="#i-shield"/></svg> 70% confidence gate</span>
+                <span><svg class="icon"><use href="#i-zap"/></svg> ~1s demo inference</span>
+                <span><svg class="icon"><use href="#i-shield"/></svg> 90% conformal set</span>
               </div>
             </div>
             <div class="result-loading" id="resultLoading" hidden>
@@ -538,6 +547,10 @@
                 <button role="option" data-value="ewaste">🔌 E-waste</button>
                 <button role="option" data-value="glass">🫙 Glass jar</button>
                 <button role="option" data-value="mixed">🗑️ Mixed bag</button>
+                <button role="option" data-value="multilayer">🍟 Multilayer wrapper</button>
+                <button role="option" data-value="tetrapak">🥛 Tetra Pak carton</button>
+                <button role="option" data-value="battery">🔋 Battery</button>
+                <button role="option" data-value="sanitary">🩹 Sanitary waste</button>
               </div>
             </div>
             <button class="btn btn-outline" id="manualBtn">Show guidance</button>
@@ -739,6 +752,15 @@
           </section>
         </div>
 
+        <section class="card source-score">
+          <div class="card-head">
+            <div><h2>Source quality score</h2><p>Contamination history per society · October</p></div>
+            <span class="chip">Buyers price by source</span>
+          </div>
+          <div class="source-list" id="sourceList"></div>
+          <p class="source-rule"><b>Scoring rule:</b> 100 − (contamination % × 1.5) − (reject-stream % × 2.0), clamped 0–100. Recalculated monthly from co-signed pickups, so a society that mixes waste sees its resale price fall.</p>
+        </section>
+
         <div class="impact-bottom">
           <section class="card leaderboard">
             <div class="card-head"><div><h2>Society leaderboard</h2><p>October · kg CO₂e avoided per household</p></div><span class="chip">Green Park · #3</span></div>
@@ -821,7 +843,7 @@
     </div>
     <div class="modal-body">
       <ol class="tour-steps">
-        <li><span class="tour-num">1</span><div><b>Ananya scans a bottle</b><p>Camera classifier returns "PET · blue bin · 96%". She confirms and 40 points land in her wallet.</p></div><span class="tour-emoji">🧴</span></li>
+        <li><span class="tour-num">1</span><div><b>Ananya scans a bottle</b><p>The calibrated classifier returns a 90% set with one class — PET · blue bin. She confirms and 40 points land in her wallet.</p></div><span class="tour-emoji">🧴</span></li>
         <li><span class="tour-num">2</span><div><b>The society lists 120 kg</b><p>Listings are scored, then ranked buyers see it. A verified recycler accepts at ₹22/kg.</p></div><span class="tour-emoji">🏢</span></li>
         <li><span class="tour-num">3</span><div><b>A collector gets the route</b><p>Fill sensors mark two bins as low. The router drops them, saving 4.6 km and 1.6 L of diesel.</p></div><span class="tour-emoji">🛻</span></li>
         <li><span class="tour-num">4</span><div><b>Impact becomes a report</b><p>QR events and weights hash-chain into a carbon record the buyer and the RWA can both audit.</p></div><span class="tour-emoji">📊</span></li>
