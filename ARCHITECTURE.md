@@ -515,9 +515,11 @@ pickups. Buyers price lots by source; generators watch their score move and lose
 money when they mix. This is the behaviour loop that scanning alone does not
 create — it makes clean segregation *worth* something.
 
-Secondary hooks, if there is room: micro-lot pooling against recycler standing
-orders, live price feedback when contamination is detected, Grad-CAM on the
-result card, and a digital-twin slider that recomputes km/fuel/CO₂ live.
+Secondary hooks: **live price feedback** is already in the demo — the ₹/kg band
+drops when contamination is detected, so the user sees why segregation pays.
+Still on the roadmap: micro-lot pooling against recycler standing orders,
+Grad-CAM on the result card, and a digital-twin slider that recomputes
+km/fuel/CO₂ live.
 
 ---
 
@@ -531,12 +533,14 @@ result card, and a digital-twin slider that recomputes km/fuel/CO₂ live.
 | "14.2 km → 9.6 km" | Modelled table, not solved |
 | "₹14/kg" | Illustrative band |
 | CO₂e figures | Modelled bands; factor version is a placeholder |
-| "Hash-chained ledger" | Chain format real, rows demo, signatures absent |
+| Co-signed ledger / 2-of-2 signatures | UI demo: rows, signature chips and Merkle anchor are illustrative. No Ed25519 keys, no signature verification, no external commit |
+| Collector passport / reputation | Demo data; no KYC, verified pickups or UPI transfer |
+| Live price feedback | Hand-authored clean vs contaminated reference prices, not a market feed |
 | Source quality score | Demo data, scoring rule described |
 | Camera preview | Real `getUserMedia`, classification scripted |
 
-Nothing here claims a trained model, live sensors, signed handoffs or paying
-buyers.
+Nothing here claims a trained model, live sensors, signed handoffs, paying
+buyers or real money movement.
 
 ---
 

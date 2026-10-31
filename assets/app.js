@@ -141,6 +141,13 @@
     }
   };
 
+  /* Clean-grade reference price. Contaminated samples show the live discount. */
+  SAMPLES.food.cleanPrice = 6;
+  SAMPLES.tetrapak.cleanPrice = 3;
+  Object.values(SAMPLES).forEach((s) => {
+    if (s.price && !s.cleanPrice) s.cleanPrice = s.price;
+  });
+
   const MAT_META = {
     'PET bottles': { category: 'Plastic', emoji: '🧴', thumb: 'plastic' },
     'Cardboard': { category: 'Paper', emoji: '📦', thumb: 'paper' },
@@ -233,13 +240,18 @@
   ];
 
   const LEDGER = [
-    { title: 'Processing confirmed', meta: 'Okhla Recyclers · 18 Oct, 16:20', hash: '0x7c1a…9e04', done: true },
-    { title: 'Accepted by buyer', meta: 'Weight 118.4 kg · 18 Oct, 15:02', hash: '0x2f88…b31c', done: true },
-    { title: 'Delivered to buyer', meta: 'QR scanned at gate · 18 Oct, 14:40', hash: '0x9d02…44ae', done: true },
-    { title: 'Collected from society', meta: 'Rafiq K. · 18 Oct, 11:05', hash: '0x5be7…c190', done: true },
-    { title: 'Pickup accepted', meta: 'Auto-assigned by route engine', hash: '0x81cc…7d2f', done: true },
-    { title: 'Listing created', meta: 'Ananya R. · 17 Oct, 19:32', hash: '0xa34e…0b51', done: true }
+    { title: 'Pickup co-signed', meta: 'Rafiq K. + Ananya R. · 118.4 kg · 18 Oct, 11:05', hash: '0x5be7…c190', sigs: ['Rafiq K.', 'Ananya R.'], done: true },
+    { title: 'Delivery co-signed', meta: 'Rafiq K. + Okhla Recyclers · QR at gate · 18 Oct, 14:40', hash: '0x9d02…44ae', sigs: ['Rafiq K.', 'Okhla Recyclers'], done: true },
+    { title: 'Buyer acceptance co-signed', meta: 'Okhla Recyclers + Green Park Society · 18 Oct, 15:02', hash: '0x2f88…b31c', sigs: ['Okhla Recyclers', 'Green Park Society'], done: true },
+    { title: 'Processing co-signed', meta: 'Okhla Recyclers + Shree Paper Mills · 18 Oct, 16:20', hash: '0x7c1a…9e04', sigs: ['Okhla Recyclers', 'Shree Paper Mills'], done: true }
   ];
+
+  const MERKLE = {
+    root: '0x8f3c…a71d',
+    day: '18 Oct 2026',
+    commit: 'a71d9c2',
+    rows: LEDGER.length
+  };
 
   /* ---------------------------------------------------------
      Tiny helpers
@@ -657,6 +669,9 @@
           ? 'One class in the set — safe to route automatically.'
           : `${size} possible materials. Pick the one you are holding; the choice is logged for review.`;
 
+    const dirty = s.price > 0 && s.cleanPrice > s.price;
+    const drop = dirty ? Math.round((1 - s.price / s.cleanPrice) * 100) : 0;
+
     body.innerHTML = `
       <div class="result-head">
         <div class="result-cat">
@@ -687,7 +702,10 @@
         <div class="result-cell"><span>CO₂e / 25 kg</span><b>${co2}</b></div>
       </div>
 
+      ${dirty ? `<div class="price-feedback">${icon('trend')}<span><b>−${drop}% for ${s.contamination.join(' + ')}.</b> Clean grade pays ₹${s.cleanPrice}/kg; your band is ${band}/kg. This is the price signal, not a penalty.</span></div>` : ''}
+
       <p class="weight-note">Weight 18–32 kg estimated from the photo · settled on the collector’s scale at pickup.</p>
+      <p class="co2-note">Factor v2026.10 · counted on additional diversion only, never on total collected kg.</p>
 
       <div class="mrs-row">
         <span class="mrs-label">Material recovery</span>
@@ -1253,8 +1271,27 @@
     host.innerHTML = LEDGER.map((e) => `
       <div class="ledger-item ${e.done ? '' : 'pending'}">
         <span class="ledger-dot">${e.done ? icon('check') : ''}</span>
-        <div class="ledger-main"><b>${e.title}</b><small>${e.meta}</small><span class="ledger-hash">${e.hash}</span></div>
+        <div class="ledger-main">
+          <b>${e.title}</b>
+          <small>${e.meta}</small>
+          <div class="sig-row">
+            ${e.sigs.map((s) => `<span class="sig-chip">${icon('check')} ${s}</span>`).join('')}
+            <span class="sig-badge">2-of-2</span>
+          </div>
+          <span class="ledger-hash">${e.hash}</span>
+        </div>
       </div>`).join('');
+
+    const anchor = $('#merkleAnchor');
+    if (anchor) {
+      anchor.innerHTML = `
+        <div class="merkle-main">
+          <span class="merkle-label">Daily Merkle root · ${MERKLE.day}</span>
+          <b>${MERKLE.root}</b>
+          <small>Public repo commit ${MERKLE.commit} + OpenTimestamps</small>
+        </div>
+        <button class="btn btn-soft btn-sm" data-verify-anchor>${icon('shield')} Verify anchor</button>`;
+    }
   }
 
   function renderImpact(role) {
@@ -1391,6 +1428,20 @@
         const dot = btn.querySelector('.notif-dot');
         if (dot) dot.remove();
         toast('2 new updates', 'IIT Gate 2 is at 88% and your PET listing got a third buyer match.');
+        return;
+      }
+
+      if (e.target.closest('[data-verify-anchor]')) {
+        const btn = e.target.closest('[data-verify-anchor]');
+        popIcon(btn.querySelector('.icon'));
+        toast('Anchor verified', `Root ${MERKLE.root} matches public commit ${MERKLE.commit} · ${MERKLE.rows} co-signed handoffs.`);
+        return;
+      }
+
+      if (e.target.closest('[data-collector-payout]')) {
+        const btn = e.target.closest('[data-collector-payout]');
+        popIcon(btn);
+        toast('₹1,240 released', 'UPI transfer to Rafiq K. triggered on QR confirmation. Demo only — no money moves.');
         return;
       }
 

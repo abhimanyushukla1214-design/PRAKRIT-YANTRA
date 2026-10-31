@@ -428,6 +428,35 @@
             <ul class="activity-list" id="homeActivity"></ul>
           </section>
 
+          <section class="card collector-card">
+            <div class="collector-head">
+              <div class="collector-id">
+                <span class="collector-avatar" aria-hidden="true">RK</span>
+                <div>
+                  <p class="card-label">Kabadiwala-first · verified collector</p>
+                  <h2>Rafiq Khan <span class="rep-badge"><svg class="icon"><use href="#i-check"/></svg> 4.9 reputation</span></h2>
+                  <p class="collector-meta">Green Park beat · 312 co-signed pickups · passport LG-KW-0412</p>
+                </div>
+              </div>
+              <span class="chip good"><svg class="icon"><use href="#i-shield"/></svg> KYC + UPI linked</span>
+            </div>
+            <div class="collector-grid">
+              <div class="collector-stat"><span>Settled this month</span><b>₹18,420</b><small>straight to UPI</small></div>
+              <div class="collector-stat"><span>Weight accuracy</span><b>98.6%</b><small>vs buyer scale</small></div>
+              <div class="collector-stat"><span>On-time pickups</span><b>96%</b><small>142 this quarter</small></div>
+              <div class="collector-stat"><span>Clean-handoff bonus</span><b>+6 pts</b><small>to source score</small></div>
+            </div>
+            <div class="collector-actions">
+              <div class="collector-channels">
+                <span class="channel-chip">हिन्दी voice notes</span>
+                <span class="channel-chip">WhatsApp bot</span>
+                <span class="channel-chip">Works on a ₹8,000 phone</span>
+              </div>
+              <button class="btn btn-primary btn-sm" data-collector-payout>Release ₹1,240 on QR</button>
+            </div>
+            <p class="collector-note">Demo passport. In production the reputation is built only from dual-signed handoffs — not self-reported ratings — so a collector’s record travels with them between apps.</p>
+          </section>
+
           <section class="card onboard-card">
             <div class="card-head">
               <div><h2>Finish setting up</h2><p>3 steps · about 4 minutes</p></div>
@@ -507,7 +536,7 @@
               <button class="sample" data-sample="sanitary"><span>🩹</span>Sanitary waste</button>
               <button class="sample" data-sample="unknown"><span>❓</span>Unknown</button>
             </div>
-            <p class="stage-note"><svg class="icon"><use href="#i-shield"/></svg> On-device inference in production. This demo runs a scripted classifier and a scripted 90% conformal set.</p>
+            <p class="stage-note"><svg class="icon"><use href="#i-shield"/></svg> Production pipeline: EXIF stripped and background blurred on-device, scans queued in IndexedDB, DPDP consent before upload. This demo runs a scripted classifier.</p>
           </section>
 
           <section class="card scan-result" id="scanResult">
@@ -768,9 +797,11 @@
           </section>
 
           <section class="card ledger-card">
-            <div class="card-head"><div><h2>Traceability ledger</h2><p>Hash-chained pickup events</p></div><span class="chip good"><svg class="icon"><use href="#i-shield"/></svg> Intact</span></div>
+            <div class="card-head"><div><h2>Co-signed ledger</h2><p>Collector + buyer sign every handoff</p></div><span class="chip good"><svg class="icon"><use href="#i-shield"/></svg> 2-of-2 · intact</span></div>
             <div class="ledger" id="ledgerList"></div>
-            <p class="ledger-note">Each event stores the previous hash, so a deleted or edited pickup breaks the chain and is flagged in the ESG report.</p>
+            <div class="merkle-anchor" id="merkleAnchor"></div>
+            <p class="ledger-note">Ed25519 signatures from both parties. A daily Merkle root is committed to a public repo, so neither side — nor LoopGrid — can rewrite a row alone.</p>
+            <p class="ledger-note muted">Demo: rows, signatures and the anchor are illustrative. No keys are generated in this build.</p>
           </section>
         </div>
       </section>

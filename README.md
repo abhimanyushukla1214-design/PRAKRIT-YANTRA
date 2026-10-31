@@ -72,11 +72,11 @@ No secrets or API keys are needed.
 | Route | What it does |
 |---|---|
 | Overview (`#landing`) | Pitch, problem chain, six-step loop, B2C/B2B/ops layers, modelled impact, pricing |
-| Overview | Dashboard with carbon ring, green points wallet, bin fill sensors, activity, onboarding checklist |
-| Scan & sort | Simulated calibrated classifier: 13 sample items, 90% conformal prediction set, hazardous override, unknown/OOD path, bin, resale band, recovery score, confirm → listing |
+| Overview | Dashboard with carbon ring, green points wallet, bin fill sensors, activity, onboarding checklist, verified collector passport (kabadiwala-first) |
+| Scan & sort | Simulated calibrated classifier: 13 sample items, 90% conformal prediction set, hazardous override, unknown/OOD path, bin, resale band, live price feedback when contamination is detected, recovery score, confirm → listing |
 | Marketplace | Filterable listings, search, verified toggle, save/shortlist, listing detail modal with QR + hash timeline |
 | Routes & bins | Stylised South Delhi map, fill levels, route optimiser, skip-under-40% toggle, overflow prediction |
-| Impact | Role-based metrics, monthly diversion chart, material donut, source-level quality score, society leaderboard, traceability ledger, CSV export |
+| Impact | Role-based metrics, monthly diversion chart, material donut, source-level quality score, society leaderboard, co-signed ledger with Merkle anchor, CSV export |
 
 **Demo script for judges (≈90 seconds)**
 
@@ -84,10 +84,11 @@ No secrets or API keys are needed.
 2. **Scan & sort** → choose *PET bottle* → **Classify item**. The card shows a **90% conformal set with one class**, so it auto-routes. → **Confirm & list**.
 3. You land in **Marketplace** with the new listing at the top.
 4. Open a listing → show QR, status timeline, **Accept pickup**.
-5. Back on **Scan & sort**, open *Hard cases* → **Battery** → **Request certified pickup** (no points, no listing). Then **Unknown** → **Needs review** (empty set, no auto-route).
+5. Back on **Scan & sort**, open *Hard cases* → **Food scraps** to show the **live price feedback** (clean ₹6/kg vs ₹4/kg for wet + food residue). Then **Battery** → **Request certified pickup** (no points, no listing), and **Unknown** → **Needs review** (empty set, no auto-route).
 6. **Routes & bins** → **Optimise route** → 14.2 km → 9.6 km, 3 low bins skipped.
-7. **Impact** → point at the **source quality score** (contamination % → score/100) → switch Household / Society / Business → **Export ESG report**.
-8. Optional: topbar role switch, **Redeem** points, mobile bottom nav.
+7. **Overview** → point at Rafiq Khan's **collector passport** (reputation from co-signed pickups, UPI payout, Hindi/WhatsApp channels).
+8. **Impact** → point at the **source quality score** (contamination % → score/100) → scroll to the **co-signed ledger** → **Verify anchor** (Merkle root vs public commit) → switch Household / Society / Business → **Export ESG report**.
+9. Optional: topbar role switch, **Redeem** points, mobile bottom nav.
 
 ---
 
@@ -98,6 +99,8 @@ No secrets or API keys are needed.
 - Bin fill levels and sensor pings are **simulated**; the UI says so.
 - Routing numbers (14.2 → 9.6 km, fuel, CO₂e) are modelled, not measured.
 - Marketplace sellers, weights, hashes, source quality scores and ESG rows are demo data. The scoring rule is printed on the card.
+- The co-signed ledger, signature chips, collector passport and Merkle anchor are **illustrative UI**. No Ed25519 keys are generated, no signatures are verified, no UPI payment is initiated, and the root is not committed anywhere. The UI says so on the card.
+- The live price feedback uses hand-authored clean/contaminated reference prices, not a market feed.
 - Camera preview is real (`getUserMedia`) but classification still maps to the sample set.
 
 This is deliberate: the deck and the app should not claim a model or hardware that does not exist yet.
