@@ -198,18 +198,22 @@
     clean: {
       name: 'Clean dry lot', emoji: '🛍️', classes: ['PET', 'Cardboard'],
       purity: 96, contamination: 2, reject: 0, weight: '38–44 kg',
+      qty: 40, price: 22, co2: 1.9, points: 40,
+      material: 'PET bottles', category: 'Plastic', emoji2: '🧴', thumb: 'plastic',
       verdict: 'Accept', tone: 'accept',
       note: 'One wet corner and a greasy box were pulled at the gate. The rest can be listed as mixed dry paper and plastic.'
     },
     mixed: {
       name: 'Mixed bag', emoji: '🗑️', classes: ['Food residue', 'Multilayer wrapper', 'PET'],
       purity: 71, contamination: 14, reject: 6, weight: '22–28 kg',
+      qty: 0, price: 0, co2: 0, points: 0,
       verdict: 'Reject · resort', tone: 'warn',
       note: 'Food waste is touching the dry fraction. The bag is not listed; split dry, wet and reject before checking again.'
     },
     hazard: {
       name: 'Hazard in lot', emoji: '🔋', classes: ['Battery', 'E-waste'],
       purity: 0, contamination: 0, reject: 100, weight: '—',
+      qty: 0, price: 0, co2: 0, points: 0,
       verdict: 'Isolate · certified handler', tone: 'danger',
       note: 'A lithium battery is in the bag. The lot is isolated, no points are awarded, and a CPCB-registered handler collects it.'
     }
@@ -838,7 +842,7 @@
     body.innerHTML = `
       <div class="lot-verdict ${lot.tone}">
         <span class="lot-verdict-badge">${lot.verdict}</span>
-        <div><b>${lot.purity ? `${lot.purity}% purity` : 'Hazard found'}</b><small>${lot.classes.join(' · ')}</small></div>
+        <div><b>${lot.purity ? `${lot.purity}% purity · ${lot.qty} kg` : 'Hazard found'}</b><small>${lot.classes.join(' · ')}</small></div>
       </div>
       <div class="purity-meter ${lot.tone}"><i style="--s:${lot.purity / 100}"></i></div>
       <div class="lot-facts">
@@ -854,7 +858,7 @@
       </div>
       <p class="fine">Collector-confirmed weight: ${lot.weight}. The photo estimate is never used for settlement.</p>
       <div class="lot-actions">
-        <button class="btn btn-primary btn-sm" data-lot-log>${hazard ? 'Isolate &amp; log' : 'Log lot check'}</button>
+        <button class="btn btn-primary btn-sm" data-lot-log>${lot.tone === 'accept' ? 'Accept · list to buyer' : lot.tone === 'warn' ? 'Reject · log' : 'Isolate &amp; log'}</button>
         <button class="btn btn-ghost btn-sm" data-lot-reset>Clear</button>
       </div>`;
     body.classList.remove('voice-in');
@@ -888,7 +892,48 @@
       renderSourceScore();
     }
 
-    const title = hazard ? 'Hazard isolated' : lot.tone === 'warn' ? 'Lot check rejected' : 'Lot check accepted';
+    /* A clean lot is already sorted: we skip the item scan and go straight to
+       buyer matching + listing creation = the chain. */
+    let listing = null;
+    if (lot.tone === 'accept') {
+      listing = {
+        id: nextListingId(),
+        material: lot.material || lot.classes[0] || 'Sorted lot',
+        category: lot.category || 'Mixed',
+        emoji: lot.emoji2 || lot.emoji,
+        thumb: lot.thumb || 'plastic',
+        qty: lot.qty,
+        price: lot.price,
+        locality: 'Green Park',
+        distance: 0.4,
+        seller: 'Green Park Society',
+        verified: true,
+        score: 92,
+        posted: 'Just now',
+        fresh: Date.now(),
+        status: 'Listed',
+        co2: Math.round(lot.qty * lot.co2),
+        note: `From lot check · ${lot.name} · ${lot.purity}% purity`
+      };
+      state.listings.unshift(listing);
+      state.points += lot.points;
+      ROLE_DATA.household.carbon = +(ROLE_DATA.household.carbon + lot.qty * lot.co2).toFixed(1);
+      state.carbon = ROLE_DATA.household.carbon;
+      ACTIVITY.unshift({ icon: '📦', text: `Lot check → <b>${listing.id}</b> · ${listing.material} ${lot.qty} kg`, time: 'Just now' });
+      updateHomeStats();
+      renderActivity();
+      renderMarket();
+      renderImpact(state.role);
+      markOnboard(1);
+      if (state.onboard[0]) markOnboard(0);
+    }
+
+    const title = lot.tone === 'accept'
+      ? 'Buyer chain created'
+      : lot.tone === 'warn'
+        ? 'Lot check rejected'
+        : 'Hazard isolated';
+
     LEDGER.unshift({
       title,
       meta: `Rafiq K. + Ananya R. · ${lot.weight} · ${lot.purity}% purity · ${stamp}`,
@@ -905,13 +950,14 @@
     const btn = $('[data-lot-log]');
     if (btn) {
       btn.disabled = true;
-      btn.textContent = hazard ? 'Isolated' : 'Logged';
+      btn.textContent = lot.tone === 'accept' ? 'Listed · chain live' : lot.tone === 'warn' ? 'Rejected' : 'Isolated';
     }
-    toast(
-      title,
-      hazard ? 'Certified handler requested. No points for hazardous waste.' : `${lot.purity}% purity · queued for the next daily anchor.`,
-      hazard ? 'warn' : 'success'
-    );
+
+    if (lot.tone === 'accept' && listing) {
+      toast('Buyer chain created', `${listing.id} · ${listing.material} · ${lot.qty} kg · 3 verified buyers · listing live in Marketplace.`);
+    } else {
+      toast(title, hazard ? 'Certified handler requested. No points for hazardous waste.' : `${lot.purity}% purity · queued for the next daily anchor.`, hazard ? 'warn' : 'success');
+    }
   }
 
   async function confirmScan() {

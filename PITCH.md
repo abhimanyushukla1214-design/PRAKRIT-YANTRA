@@ -51,7 +51,7 @@ Use this with the live demo, not as a replacement for it.
 > a dirty tub. It is an “I’m not sure” helper, not a daily ritual.
 
 **Demo beat:** open **Sort & verify → Verify a lot → Clean dry lot**. Point at
-96% purity, 2% contamination, source score 85 → 87. Then **Mixed bag** → 71%
+96% purity, 2% contamination, source score 85 → 87. First, for the clean lot: **Accept · list to buyer**. That creates the buyer chain — the clean lot becomes a listing with 3 verified buyers, and the chain is live. Then **Mixed bag** → 71%
 purity, reject and re-sort. Say: “This is one photo, not a hundred scans.”
 
 ### 1:05–1:35 — The loop

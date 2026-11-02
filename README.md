@@ -146,7 +146,7 @@ This is also better for the quality score: it is built from real lot checks and 
 **Demo script for judges (≈90 seconds)**
 
 1. Landing → **Open live demo**.
-2. **Sort & verify** → **Verify a lot** → *Clean dry lot*. Show **96% purity**, 2% contamination, source score **85 → 87**, and **Log lot check**. Then *Mixed bag* → **Reject · resort** at 71% purity. This is the routine path: one photo, no item scanning.
+2. **Sort & verify** → **Verify a lot** → *Clean dry lot*. Show **96% purity**, 2% contamination, source score **85 → 87**, then **Accept · list to buyer** — the clean lot becomes a listing with 3 verified buyers (buyer chain created). Then *Mixed bag* → **Reject · resort** at 71% purity. This is the routine path: one photo, no item scanning, and for sorted material no scan at all.
 3. Scroll to **Exception scanner** → choose *PET bottle* → **Classify item**. The card shows a **90% conformal set with one class**, so it auto-routes. → **Confirm & list**. You land in **Marketplace** with the new listing at the top.
 4. Open a listing → show QR, status timeline, **Accept pickup**.
 5. Back on **Sort & verify**, open *Hard cases* → **Food scraps** to show the **live price feedback** (clean ₹6/kg vs ₹4/kg for wet + food residue). Then **Battery** → **Request certified pickup** (no points, no listing), and **Unknown** → **Needs review** (empty set, no auto-route).
@@ -162,7 +162,7 @@ This is also better for the quality score: it is built from real lot checks and 
 ## Honest demo notes
 
 - The classifier is **scripted on 13 sample items**, not a trained model. It is labelled as a demo model in the UI.
-- The **lot check is simulated**: purity, contamination and source-score deltas are hand-authored demo values. No lot photo is processed. The UI states this and calls the check the routine path, not a live model.
+- The **lot check is simulated**: purity, contamination and source-score deltas are hand-authored demo values. No lot photo is processed. The UI states this and calls the check the routine path, not a live model. A clean lot accepted through the check creates a demo buyer chain (listing + 3 verified buyers); a mixed lot is rejected and a hazard is isolated.
 - The **passive bin camera and auto-sorting bin are specified options, not built hardware**. Costs, sensors and failure modes are written on the card; nothing is installed.
 - The conformal set is **scripted data that follows the real contract** (one class → auto-route, several → user picks, empty → human review). No calibration set exists yet.
 - Bin fill levels and sensor pings are **simulated**; the UI says so.
