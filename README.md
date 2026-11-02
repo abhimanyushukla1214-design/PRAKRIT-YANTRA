@@ -12,6 +12,8 @@ GitHub Pages serves only static files. Awaaz therefore uses browser speech by de
 
 For the architecture, the AI track and the honest demo-vs-production split, read [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
+For the corrected pitch — exception-only scanning, lot checks, optional hardware, slide wording and Q&A — read [`PITCH.md`](PITCH.md).
+
 ---
 
 ## Run it
@@ -123,22 +125,34 @@ audio.
 |---|---|
 | Overview (`#landing`) | Pitch, problem chain, six-step loop, B2C/B2B/ops layers, modelled impact, pricing |
 | Overview | Dashboard with carbon ring, green points wallet, bin fill sensors, activity, onboarding checklist, verified collector passport (kabadiwala-first) |
-| Scan & sort | Simulated calibrated classifier: 13 sample items, 90% conformal prediction set, hazardous override, unknown/OOD path, bin, resale band, live price feedback when contamination is detected, recovery score, confirm → listing |
+| Sort & verify | **Routine path:** one lot photo at pickup checks purity/contamination, updates the source score and logs the handoff. **Exception path:** a simulated 13-item scanner with a 90% conformal set, hazardous override, unknown/OOD path and live price feedback — used only when one item is ambiguous |
 | Marketplace | Filterable listings, search, verified toggle, save/shortlist, listing detail modal with QR + hash timeline |
-| Routes & bins | Stylised South Delhi map, fill levels, route optimiser, skip-under-40% toggle, overflow prediction |
+| Routes & bins | Stylised South Delhi map, fill levels, route optimiser, skip-under-40% toggle, overflow prediction, optional hardware options (passive bin camera / auto-sorting bin / lot photo) |
 | Impact | Role-based metrics, monthly diversion chart, material donut, source-level quality score, society leaderboard, co-signed ledger with Merkle anchor, CSV export |
 | Awaaz | Push-to-talk Hindi/Hinglish/English, consent gate, structured pickup draft, confidence gate, spoken receipt hashed to the ledger, segregation coach, cached smart-bin voices, language switch, API settings + fallback chain |
+
+### Why nobody scans every item
+
+Scanning every item before throwing it away is a product-killer. The demo therefore puts the routine check at the **lot level**:
+
+1. A household keeps the normal wet/dry split and drops the bag at the collection point.
+2. The collector or society manager takes **one photo of the bag or bin** at pickup.
+3. The check returns purity, contamination classes and a decision: accept, accept with a price deduction, or reject and re-sort.
+4. The buyer's acceptance is the ground truth. No per-item effort is required from the family.
+5. A single-item scan is an **exception helper** — a battery, a wrapper, a dirty tub — not a daily ritual.
+
+This is also better for the quality score: it is built from real lot checks and buyer acceptance, not from how often a user opened the camera.
 
 **Demo script for judges (≈90 seconds)**
 
 1. Landing → **Open live demo**.
-2. **Scan & sort** → choose *PET bottle* → **Classify item**. The card shows a **90% conformal set with one class**, so it auto-routes. → **Confirm & list**.
-3. You land in **Marketplace** with the new listing at the top.
+2. **Sort & verify** → **Verify a lot** → *Clean dry lot*. Show **96% purity**, 2% contamination, source score **85 → 87**, and **Log lot check**. Then *Mixed bag* → **Reject · resort** at 71% purity. This is the routine path: one photo, no item scanning.
+3. Scroll to **Exception scanner** → choose *PET bottle* → **Classify item**. The card shows a **90% conformal set with one class**, so it auto-routes. → **Confirm & list**. You land in **Marketplace** with the new listing at the top.
 4. Open a listing → show QR, status timeline, **Accept pickup**.
-5. Back on **Scan & sort**, open *Hard cases* → **Food scraps** to show the **live price feedback** (clean ₹6/kg vs ₹4/kg for wet + food residue). Then **Battery** → **Request certified pickup** (no points, no listing), and **Unknown** → **Needs review** (empty set, no auto-route).
-6. **Routes & bins** → **Optimise route** → 14.2 km → 9.6 km, 3 low bins skipped.
+5. Back on **Sort & verify**, open *Hard cases* → **Food scraps** to show the **live price feedback** (clean ₹6/kg vs ₹4/kg for wet + food residue). Then **Battery** → **Request certified pickup** (no points, no listing), and **Unknown** → **Needs review** (empty set, no auto-route).
+6. **Routes & bins** → **Optimise route** → 14.2 km → 9.6 km, 3 low bins skipped → scroll to **Hardware, optional** (passive bin camera, auto-sorting bin, lot photo) and the facility sourcing card.
 7. **Overview** → point at Rafiq Khan's **collector passport** (reputation from co-signed pickups, UPI payout, Hindi/WhatsApp channels).
-8. **Impact** → point at the **source quality score** (contamination % → score/100) → scroll to the **co-signed ledger** → **Verify anchor** (Merkle root vs public commit) → switch Household / Society / Business → **Export ESG report**.
+8. **Impact** → point at the **source quality score** (lot checks + buyer acceptance → score/100) → scroll to the **co-signed ledger** → **Verify anchor** (Merkle root vs public commit) → switch Household / Society / Business → **Export ESG report**.
 9. **Awaaz** → tick consent → tap the **“40 kg PET · kal 6 baje”** pill. The result shows the parsed slots, confidence, and the tools that would run. → **Create pickup** → **Co-sign & ledger it**. The spoken receipt appears with a SHA-256 of the receipt **text**, and the new ledger row is marked **next anchor** — it is not folded into today's root.
 10. **Awaaz** → switch to English → **Segregation coach → E-waste → Sunnein**; tap a **smart-bin voice**; show that the caption is always on screen.
 11. Optional: topbar role switch, **Redeem** points, **pilot reward rules** on the points card, mobile bottom nav.
@@ -148,6 +162,8 @@ audio.
 ## Honest demo notes
 
 - The classifier is **scripted on 13 sample items**, not a trained model. It is labelled as a demo model in the UI.
+- The **lot check is simulated**: purity, contamination and source-score deltas are hand-authored demo values. No lot photo is processed. The UI states this and calls the check the routine path, not a live model.
+- The **passive bin camera and auto-sorting bin are specified options, not built hardware**. Costs, sensors and failure modes are written on the card; nothing is installed.
 - The conformal set is **scripted data that follows the real contract** (one class → auto-route, several → user picks, empty → human review). No calibration set exists yet.
 - Bin fill levels and sensor pings are **simulated**; the UI says so.
 - Routing numbers (14.2 → 9.6 km, fuel, CO₂e) are modelled, not measured.
@@ -193,19 +209,20 @@ Only `transform` and `opacity` are animated. `will-change` is applied only durin
 ```
 index.html          structure, icon sprite, landing, app shell, modals
 assets/styles.css   design tokens, components, responsive layout, motion
-assets/app.js       state, routing, classifier demo, marketplace, map, charts, Awaaz
+assets/app.js       state, routing, lot checks, exception classifier, marketplace, map, charts, Awaaz
 voice_api.py        FastAPI gateway: ElevenLabs TTS/STT, deterministic intent, mock mode
 requirements-voice.txt  fastapi, uvicorn, httpx, python-multipart
 .env.example        server-side voice key, models, CORS, daily cap
 streamlit_app.py    Streamlit wrapper: serves the site and frames it full-screen
 requirements.txt    streamlit
 .streamlit/         server + theme config for the wrapper
+PITCH.md            corrected pitch script, slide wording and Q&A
 screenshots/        desktop + mobile captures for the submission form
 ```
 
 No frameworks, no bundler, no network dependency except the Google Fonts link (falls back to system fonts offline).
 
-**On mobile**, the bottom bar has Home, Scan, Market and Impact. *Routes & bins* opens from the two map tiles on the Overview page.
+**On mobile**, the bottom bar has Home, Verify, Market and Impact. *Routes & bins* opens from the two map tiles on the Overview page.
 
 ---
 

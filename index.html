@@ -89,7 +89,7 @@
         <div class="hero-copy reveal">
           <span class="eyebrow-pill"><span class="live-dot"></span> HackTheCircle · Sustainability &amp; Social Impact</span>
           <h1>Delhi's waste isn't worthless.<br><span class="grad">It's just in the wrong place.</span></h1>
-          <p class="hero-sub">LoopGrid is the smart waste exchange for Delhi-NCR. We identify material with a camera, match it to verified buyers, route the pickup, and prove the carbon saved — for homes, campuses and businesses.</p>
+          <p class="hero-sub">LoopGrid is the smart waste exchange for Delhi-NCR. We verify each lot at pickup, match it to verified buyers, route the collection, and prove the carbon saved — for homes, campuses and businesses.</p>
           <div class="hero-cta">
             <button class="btn btn-accent btn-lg" data-enter-app>Try the live demo <svg class="icon"><use href="#i-arrow"/></svg></button>
             <button class="btn btn-glass btn-lg" data-tour><svg class="icon"><use href="#i-play"/></svg> 60-second tour</button>
@@ -103,7 +103,7 @@
         <div class="hero-visual reveal" style="--delay:120ms">
           <div class="scan-card">
             <div class="scan-card-top">
-              <span class="mini-label"><span class="live-dot"></span> Live classification</span>
+              <span class="mini-label"><span class="live-dot"></span> Exception scan · when unsure</span>
               <span class="mini-chip">90% set · 1 class</span>
             </div>
             <div class="scan-frame">
@@ -164,7 +164,7 @@
           <span class="problem-num">01</span>
           <h3>Segregation fails at the last metre</h3>
           <p>People want to sort. But "dry, wet, hazardous" is abstract at 7am with a yoghurt tub in hand. Confusion becomes contamination, and one wet bag ruins a whole sack of paper.</p>
-          <span class="problem-tag">Fix: camera-first segregation</span>
+          <span class="problem-tag">Fix: exception-only scanning + one lot photo</span>
         </article>
         <article class="problem-card reveal" style="--delay:140ms">
           <span class="problem-num">02</span>
@@ -191,7 +191,7 @@
 
       <div class="flow reveal">
         <div class="flow-step"><span class="flow-num">1</span><span class="flow-icon">🏠</span><b>Generate material</b><small>Household · campus · shop</small></div>
-        <div class="flow-step"><span class="flow-num">2</span><span class="flow-icon">📷</span><b>AI identifies</b><small>Category + value + bin</small></div>
+        <div class="flow-step"><span class="flow-num">2</span><span class="flow-icon">📷</span><b>AI verifies the lot</b><small>Purity + contamination</small></div>
         <div class="flow-step"><span class="flow-num">3</span><span class="flow-icon">🤝</span><b>Marketplace match</b><small>Ranked verified buyers</small></div>
         <div class="flow-step"><span class="flow-num">4</span><span class="flow-icon">🛻</span><b>Collect + route</b><small>Shortest verified pickup</small></div>
         <div class="flow-step"><span class="flow-num">5</span><span class="flow-icon">✅</span><b>Buyer accepts</b><small>Weight + QR proof</small></div>
@@ -203,8 +203,8 @@
         <article class="layer-card reveal" style="--delay:40ms">
           <div class="layer-top"><span class="layer-icon green"><svg class="icon"><use href="#i-user"/></svg></span><span class="layer-tag">B2C</span></div>
           <h3>Segregation assistant</h3>
-          <p>Point the camera at an item. Get the right bin, the resale value and the points — in under two seconds.</p>
-          <ul class="ticks"><li>Offline-friendly classifier</li><li>Green points at local shops</li><li>Society leaderboards</li></ul>
+          <p>Sort as you always do. Scan only the odd item you are unsure about; the collector verifies the whole lot with one photo at pickup.</p>
+          <ul class="ticks"><li>Exception-only scanning</li><li>Green points at local shops</li><li>Society leaderboards</li></ul>
         </article>
         <article class="layer-card reveal" style="--delay:120ms">
           <div class="layer-top"><span class="layer-icon teal"><svg class="icon"><use href="#i-building"/></svg></span><span class="layer-tag">B2B</span></div>
@@ -307,7 +307,7 @@
     <nav class="side-nav" aria-label="Main">
       <p class="side-label">Workspace</p>
       <button class="side-link" data-nav="home"><svg class="icon"><use href="#i-home"/></svg><span>Overview</span></button>
-      <button class="side-link" data-nav="scan"><svg class="icon"><use href="#i-scan"/></svg><span>Scan &amp; sort</span><em class="side-badge">AI</em></button>
+      <button class="side-link" data-nav="scan"><svg class="icon"><use href="#i-scan"/></svg><span>Sort &amp; verify</span><em class="side-badge">AI</em></button>
       <button class="side-link" data-nav="market"><svg class="icon"><use href="#i-market"/></svg><span>Marketplace</span><em class="side-badge" id="sideMarketCount">8</em></button>
       <button class="side-link" data-nav="routes"><svg class="icon"><use href="#i-map"/></svg><span>Routes &amp; bins</span></button>
       <button class="side-link" data-nav="impact"><svg class="icon"><use href="#i-chart"/></svg><span>Impact</span></button>
@@ -361,7 +361,7 @@
           </div>
           <div class="page-actions">
             <button class="btn btn-ghost" data-nav="impact"><svg class="icon"><use href="#i-chart"/></svg> Impact</button>
-            <button class="btn btn-primary" data-nav="scan"><svg class="icon"><use href="#i-scan"/></svg> Scan an item</button>
+            <button class="btn btn-primary" data-nav="scan"><svg class="icon"><use href="#i-scan"/></svg> Sort &amp; verify</button>
           </div>
         </div>
 
@@ -415,7 +415,7 @@
           <div class="quick-row">
             <button class="quick-tile" data-nav="scan">
               <span class="quick-icon green"><svg class="icon"><use href="#i-camera"/></svg></span>
-              <span class="quick-copy"><b>Scan &amp; sort</b><small>Identify any item in 2s</small></span>
+              <span class="quick-copy"><b>Sort &amp; verify</b><small>Lot check · scan only if unsure</small></span>
               <svg class="icon quick-arrow"><use href="#i-arrow"/></svg>
             </button>
             <button class="quick-tile" data-open-listing>
@@ -493,7 +493,7 @@
               </button>
               <button class="onboard-step" data-onboard="1" data-nav="scan">
                 <span class="step-check"><span>2</span></span>
-                <span class="step-copy"><b>Scan your first item</b><small>Camera or manual pick</small></span>
+                <span class="step-copy"><b>Verify your first lot</b><small>One photo at pickup — or scan an odd item</small></span>
                 <span class="step-state">Start <svg class="icon"><use href="#i-arrow"/></svg></span>
               </button>
               <button class="onboard-step" data-onboard="2" data-open-listing>
@@ -510,20 +510,42 @@
       <section class="page" data-page="scan">
         <div class="page-head">
           <div>
-            <p class="eyebrow"><span class="live-dot"></span> Computer vision · demo model</p>
-            <h1>Scan &amp; sort.</h1>
-            <p class="sub">Point at an item. LoopGrid tells you the bin, the value and the points.</p>
+            <p class="eyebrow"><span class="live-dot"></span> Verification · exception-first</p>
+            <h1>Sort &amp; verify.</h1>
+            <p class="sub">Households keep the normal wet/dry split. Collectors verify each lot with one photo — scan a single item only when you are unsure.</p>
           </div>
           <div class="page-actions">
             <button class="btn btn-ghost" data-nav="market"><svg class="icon"><use href="#i-market"/></svg> Marketplace</button>
           </div>
         </div>
 
+        <section class="card lot-card">
+          <div class="card-head">
+            <div><h2>Verify a lot</h2><p>The routine path · collector or society manager · one photo at pickup</p></div>
+            <span class="chip good">Primary</span>
+          </div>
+          <div class="lot-grid">
+            <div class="lot-copy">
+              <p>Nobody scans every item before throwing it away. The collector photographs the bag or bin once, checks purity and contamination, and the buyer's acceptance becomes the ground truth. A dirty lot is rejected before it is listed.</p>
+              <div class="lot-presets">
+                <button class="sample" data-lot="clean"><span>♻️</span> Clean dry lot</button>
+                <button class="sample" data-lot="mixed"><span>🗑️</span> Mixed bag</button>
+                <button class="sample" data-lot="hazard"><span>🔋</span> Hazard in lot</button>
+              </div>
+              <p class="fine">Demo lots. In production this is one photo plus the collector-confirmed weight — no item-by-item scanning.</p>
+            </div>
+            <div class="lot-result" id="lotResult">
+              <div class="lot-empty" id="lotEmpty">Pick a demo lot to run the check.</div>
+              <div id="lotResultBody" hidden></div>
+            </div>
+          </div>
+        </section>
+
         <div class="scan-grid">
           <section class="card scan-stage">
             <div class="stage-head">
-              <span class="mini-label"><span class="live-dot"></span> Viewfinder</span>
-              <span class="stage-hint" id="stageHint">Demo classifier · 13 sample items</span>
+              <span class="mini-label"><span class="live-dot"></span> Exception scanner</span>
+              <span class="stage-hint" id="stageHint">Optional · 13 sample items</span>
             </div>
             <div class="viewfinder" id="viewfinder">
               <video id="camera" autoplay playsinline muted hidden></video>
@@ -559,7 +581,7 @@
               <button class="sample" data-sample="sanitary"><span>🩹</span>Sanitary waste</button>
               <button class="sample" data-sample="unknown"><span>❓</span>Unknown</button>
             </div>
-            <p class="stage-note"><svg class="icon"><use href="#i-shield"/></svg> Production pipeline: EXIF stripped and background blurred on-device, scans queued in IndexedDB, DPDP consent before upload. This demo runs a scripted classifier.</p>
+            <p class="stage-note"><svg class="icon"><use href="#i-shield"/></svg> Use this only for an item you are unsure about — a battery, a wrapper, a dirty tub. Routine bags go through the lot check above. Production strips EXIF, blurs the background, queues offline scans in IndexedDB and asks for DPDP consent before upload. This demo runs a scripted classifier.</p>
           </section>
 
           <section class="card scan-result" id="scanResult">
@@ -585,8 +607,8 @@
 
         <section class="card manual-card">
           <div class="manual-copy">
-            <h2>Not sure what you're holding?</h2>
-            <p>Skip the camera and pick the material manually. You still get the bin, the price band and points.</p>
+            <h2>Only when you're unsure</h2>
+            <p>Skip the camera and pick the material manually. You still get the bin, the price band and points — no routine scanning needed.</p>
           </div>
           <div class="manual-actions">
             <div class="select" data-select="manual">
@@ -761,6 +783,15 @@
               </ul>
               <p class="fine">Verified only if it appears in an official list. Map-only results stay labelled unverified.</p>
             </section>
+            <section class="card hardware-card">
+              <div class="card-head"><div><h2>Hardware, optional</h2><p>What we would actually install</p></div><span class="chip warn">Not in demo</span></div>
+              <ul class="hardware-list">
+                <li><b>Passive bin camera</b><span>One ESP32-CAM on a shared bin. No user action; it alerts only when the lot looks wrong.</span><em>₹1,500–2,500 · privacy, power, false alerts</em></li>
+                <li><b>Auto-sorting bin</b><span>Camera + inductive, moisture and load sensors; servo flap; 3–4 containers; fill sensor per container.</span><em>₹3,000–6,000 prototype · jams, wet/crushed errors, maintenance</em></li>
+                <li><b>One lot photo</b><span>No hardware. The collector photographs the bag at pickup; works on any phone.</span><em>Default for the pilot</em></li>
+              </ul>
+              <p class="fine">Auto-sorting suits shared points — campus, mall, society gate — not every household. Low-confidence items go to an “unsure” container and hazardous waste to a locked reject bin.</p>
+            </section>
           </aside>
         </div>
       </section>
@@ -824,7 +855,7 @@
             <span class="chip">Buyers price by source</span>
           </div>
           <div class="source-list" id="sourceList"></div>
-          <p class="source-rule"><b>Scoring rule:</b> 100 − (contamination % × 1.5) − (reject-stream % × 2.0), clamped 0–100. Recalculated monthly from co-signed pickups, so a society that mixes waste sees its resale price fall.</p>
+          <p class="source-rule"><b>Scoring rule:</b> 100 − (contamination % × 1.5) − (reject-stream % × 2.0), clamped 0–100. Recalculated monthly from lot checks and buyer acceptance, not from how often someone scanned, so a society that mixes waste sees its resale price fall.</p>
         </section>
 
         <div class="impact-bottom">
@@ -960,8 +991,8 @@
 
     <nav class="tabbar" aria-label="Mobile navigation">
       <button class="tab active" data-nav="home"><svg class="icon"><use href="#i-home"/></svg><span>Home</span></button>
-      <button class="tab" data-nav="scan"><svg class="icon"><use href="#i-scan"/></svg><span>Scan</span></button>
-      <button class="tab tab-fab" data-nav="scan" aria-label="Scan item"><span class="fab-inner"><svg class="icon"><use href="#i-camera"/></svg></span></button>
+      <button class="tab" data-nav="scan"><svg class="icon"><use href="#i-scan"/></svg><span>Verify</span></button>
+      <button class="tab tab-fab" data-nav="scan" aria-label="Sort and verify waste"><span class="fab-inner"><svg class="icon"><use href="#i-camera"/></svg></span></button>
       <button class="tab" data-nav="market"><svg class="icon"><use href="#i-market"/></svg><span>Market</span></button>
       <button class="tab" data-nav="impact"><svg class="icon"><use href="#i-chart"/></svg><span>Impact</span></button>
     </nav>
@@ -1024,8 +1055,8 @@
     </div>
     <div class="modal-body">
       <ol class="tour-steps">
-        <li><span class="tour-num">1</span><div><b>Ananya scans a bottle</b><p>The calibrated classifier returns a 90% set with one class — PET · blue bin. She confirms and 40 points land in her wallet.</p></div><span class="tour-emoji">🧴</span></li>
-        <li><span class="tour-num">2</span><div><b>The society lists 120 kg</b><p>Listings are scored, then ranked buyers see it. A verified recycler accepts at ₹22/kg.</p></div><span class="tour-emoji">🏢</span></li>
+        <li><span class="tour-num">1</span><div><b>Ananya sorts as usual</b><p>She keeps the normal wet/dry split and never scans every item. The exception scanner is there only for the odd battery, wrapper or dirty tub.</p></div><span class="tour-emoji">🏠</span></li>
+        <li><span class="tour-num">2</span><div><b>Rafiq verifies the lot</b><p>One photo of the bag at pickup checks purity and contamination. A clean lot is listed; a dirty one is rejected and re-sorted before it reaches a buyer.</p></div><span class="tour-emoji">📷</span></li>
         <li><span class="tour-num">3</span><div><b>A collector gets the route</b><p>Fill sensors mark two bins as low. The router drops them, saving 4.6 km and 1.6 L of diesel.</p></div><span class="tour-emoji">🛻</span></li>
         <li><span class="tour-num">4</span><div><b>Impact becomes a report</b><p>QR events and weights hash-chain into a carbon record the buyer and the RWA can both audit.</p></div><span class="tour-emoji">📊</span></li>
       </ol>

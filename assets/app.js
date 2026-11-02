@@ -28,6 +28,7 @@
     routeOptimized: false,
     skipLow: true,
     sensorsPinged: 0,
+    lot: null,
     voice: {
       lang: 'hi',
       base: '',
@@ -191,6 +192,29 @@
     'Glass jars': { category: 'Glass', emoji: '🫙', thumb: 'glass' }
   };
 
+  /* Lot-level verification. Households never scan routine waste: one photo
+     per bag or bin at pickup checks purity and contamination. */
+  const LOTS = {
+    clean: {
+      name: 'Clean dry lot', emoji: '🛍️', classes: ['PET', 'Cardboard'],
+      purity: 96, contamination: 2, reject: 0, weight: '38–44 kg',
+      verdict: 'Accept', tone: 'accept',
+      note: 'One wet corner and a greasy box were pulled at the gate. The rest can be listed as mixed dry paper and plastic.'
+    },
+    mixed: {
+      name: 'Mixed bag', emoji: '🗑️', classes: ['Food residue', 'Multilayer wrapper', 'PET'],
+      purity: 71, contamination: 14, reject: 6, weight: '22–28 kg',
+      verdict: 'Reject · resort', tone: 'warn',
+      note: 'Food waste is touching the dry fraction. The bag is not listed; split dry, wet and reject before checking again.'
+    },
+    hazard: {
+      name: 'Hazard in lot', emoji: '🔋', classes: ['Battery', 'E-waste'],
+      purity: 0, contamination: 0, reject: 100, weight: '—',
+      verdict: 'Isolate · certified handler', tone: 'danger',
+      note: 'A lithium battery is in the bag. The lot is isolated, no points are awarded, and a CPCB-registered handler collects it.'
+    }
+  };
+
   const seedListings = [
     { id: 'LG-1042', material: 'PET bottles', category: 'Plastic', emoji: '🧴', thumb: 'plastic', qty: 120, price: 22, locality: 'Green Park', distance: 1.2, seller: 'Green Park Society', verified: true, score: 94, posted: '12 min ago', status: 'Listed', co2: 228, note: 'Rinsed, caps removed, baled in 3 bundles.' },
     { id: 'LG-1041', material: 'Cardboard (OCC)', category: 'Paper', emoji: '📦', thumb: 'paper', qty: 340, price: 14, locality: 'Okhla Phase 2', distance: 6.4, seller: 'Okhla Print Works', verified: true, score: 91, posted: '38 min ago', status: 'Pickup accepted', co2: 374, note: 'Dry, flattened, 12 bundles. Loading bay access from the rear lane.' },
@@ -340,7 +364,7 @@
   /* ---------------------------------------------------------
      Navigation
      --------------------------------------------------------- */
-  const PAGE_TITLES = { home: 'Overview', scan: 'Scan & sort', market: 'Marketplace', routes: 'Routes & bins', impact: 'Impact', awaaz: 'Awaaz · voice' };
+  const PAGE_TITLES = { home: 'Overview', scan: 'Sort & verify', market: 'Marketplace', routes: 'Routes & bins', impact: 'Impact', awaaz: 'Awaaz · voice' };
 
   function navigate(page, force = false) {
     if (!PAGE_TITLES[page]) return;
@@ -777,6 +801,117 @@
     state.pick = null;
     const tag = $('#vfTag');
     if (tag) tag.textContent = 'READY';
+  }
+
+  /* ---------------------------------------------------------
+     Lot verification — the routine path.
+     One photo per bag/bin at pickup; households only scan exceptions.
+     --------------------------------------------------------- */
+  function lotSource() {
+    return SOURCES.find((s) => s.me) || SOURCES[0];
+  }
+
+  function lotScore(contamination, rejects) {
+    return Math.max(0, Math.min(100, Math.round(100 - contamination * 1.5 - rejects * 2.0)));
+  }
+
+  function lotHash() {
+    return `0x${Math.random().toString(16).slice(2, 6)}…${Math.random().toString(16).slice(2, 6)}`;
+  }
+
+  function renderLotCheck(key) {
+    const lot = LOTS[key];
+    const body = $('#lotResultBody');
+    const empty = $('#lotEmpty');
+    if (!lot || !body || !empty) return;
+    const src = lotSource();
+    const before = lotScore(src.contamination, src.rejects);
+    const nextContam = +(src.contamination * 0.8 + lot.contamination * 0.2).toFixed(1);
+    const nextReject = +(src.rejects * 0.8 + lot.reject * 0.2).toFixed(1);
+    const after = lotScore(nextContam, nextReject);
+    const hazard = lot.tone === 'danger';
+    const delta = hazard ? 'held for review' : `${before} → ${after}`;
+    state.lot = { key, lot, src, before, after, nextContam, nextReject, logged: false };
+
+    empty.hidden = true;
+    body.hidden = false;
+    body.innerHTML = `
+      <div class="lot-verdict ${lot.tone}">
+        <span class="lot-verdict-badge">${lot.verdict}</span>
+        <div><b>${lot.purity ? `${lot.purity}% purity` : 'Hazard found'}</b><small>${lot.classes.join(' · ')}</small></div>
+      </div>
+      <div class="purity-meter ${lot.tone}"><i style="--s:${lot.purity / 100}"></i></div>
+      <div class="lot-facts">
+        <div><span>Purity</span><b>${lot.purity}%</b></div>
+        <div><span>Contamination</span><b>${lot.contamination}%</b></div>
+        <div><span>Source score</span><b>${delta}</b></div>
+      </div>
+      <p class="lot-note">${lot.note}</p>
+      <div class="tool-row">
+        <span class="tool-chip">lot_check()</span>
+        <span class="tool-chip">source_score()</span>
+        <span class="tool-chip">${hazard ? 'route_hazard()' : 'append_ledger()'}</span>
+      </div>
+      <p class="fine">Collector-confirmed weight: ${lot.weight}. The photo estimate is never used for settlement.</p>
+      <div class="lot-actions">
+        <button class="btn btn-primary btn-sm" data-lot-log>${hazard ? 'Isolate &amp; log' : 'Log lot check'}</button>
+        <button class="btn btn-ghost btn-sm" data-lot-reset>Clear</button>
+      </div>`;
+    body.classList.remove('voice-in');
+    void body.offsetWidth;
+    body.classList.add('voice-in');
+  }
+
+  function clearLotCheck() {
+    state.lot = null;
+    const body = $('#lotResultBody');
+    if (body) { body.hidden = true; body.innerHTML = ''; }
+    const empty = $('#lotEmpty');
+    if (empty) empty.hidden = false;
+    $$('[data-lot]').forEach((b) => b.classList.remove('active'));
+  }
+
+  function logLotCheck() {
+    const record = state.lot;
+    if (!record) return;
+    if (record.logged) {
+      toast('Already logged', 'This lot check is already in the ledger.');
+      return;
+    }
+    const { lot, src, nextContam, nextReject } = record;
+    const stamp = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const hazard = lot.tone === 'danger';
+
+    if (!hazard) {
+      src.contamination = nextContam;
+      src.rejects = nextReject;
+      renderSourceScore();
+    }
+
+    const title = hazard ? 'Hazard isolated' : lot.tone === 'warn' ? 'Lot check rejected' : 'Lot check accepted';
+    LEDGER.unshift({
+      title,
+      meta: `Rafiq K. + Ananya R. · ${lot.weight} · ${lot.purity}% purity · ${stamp}`,
+      hash: lotHash(),
+      sigs: ['Rafiq K.', 'Ananya R.'],
+      done: true,
+      pendingAnchor: true
+    });
+    MERKLE.rows += 1;
+    MERKLE.pending = (MERKLE.pending || 0) + 1;
+    record.logged = true;
+    renderLedger();
+
+    const btn = $('[data-lot-log]');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = hazard ? 'Isolated' : 'Logged';
+    }
+    toast(
+      title,
+      hazard ? 'Certified handler requested. No points for hazardous waste.' : `${lot.purity}% purity · queued for the next daily anchor.`,
+      hazard ? 'warn' : 'success'
+    );
   }
 
   async function confirmScan() {
@@ -1326,7 +1461,7 @@
           <span class="merkle-label">Daily Merkle root · ${MERKLE.day}</span>
           <b>${MERKLE.root}</b>
           <small>Public repo commit ${MERKLE.commit} + OpenTimestamps</small>
-          ${MERKLE.pending ? `<small class="merkle-pending">${MERKLE.pending} voice row${MERKLE.pending === 1 ? '' : 's'} queued for the next daily anchor — not in this root yet.</small>` : ''}
+          ${MERKLE.pending ? `<small class="merkle-pending">${MERKLE.pending} row${MERKLE.pending === 1 ? '' : 's'} queued for the next daily anchor — not in this root yet.</small>` : ''}
         </div>
         <button class="btn btn-soft btn-sm" data-verify-anchor>${icon('shield')} Verify anchor</button>`;
     }
@@ -2392,6 +2527,15 @@
 
       const accept = e.target.closest('[data-accept]');
       if (accept) { acceptPickup(accept.dataset.accept); return; }
+
+      const lotBtn = e.target.closest('[data-lot]');
+      if (lotBtn) {
+        $$('[data-lot]').forEach((b) => b.classList.toggle('active', b === lotBtn));
+        renderLotCheck(lotBtn.dataset.lot);
+        return;
+      }
+      if (e.target.closest('[data-lot-log]')) { logLotCheck(); return; }
+      if (e.target.closest('[data-lot-reset]')) { clearLotCheck(); return; }
 
       const chip = e.target.closest('[data-pick]');
       if (chip) {

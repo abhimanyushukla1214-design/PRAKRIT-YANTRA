@@ -33,19 +33,21 @@ becomes real.
 | UI | Hand-written HTML + CSS + vanilla JS, no framework | `index.html`, `assets/styles.css` |
 | State | Single in-memory `state` object, reset on reload | `assets/app.js` |
 | Routing | SPA page switch with push transition | `assets/app.js` |
-| Classifier | Lookup table of samples, fixed confidence, 950 ms fake latency | `SAMPLES`, `classify()` |
+| Classifier | Lookup table of samples, fixed confidence, 950 ms fake latency; exception path only | `SAMPLES`, `classify()` |
+| Lot check | Three scripted purity/contamination presets, real source-score arithmetic, ledger append | `LOTS`, `renderLotCheck()` |
 | Bins | Hard-coded fill %, positions on a stylised map | `BINS` |
 | Route | Fixed permutation + "skip under 40%" filter; distance from a 4-case table | `OPT_ORDER`, `routeStats()` |
 | Impact | Per-role constants, hand-authored chart series | `ROLE_DATA` |
-| Ledger | 4 hard-coded rows + any voice-created row, CSV export in the browser | `LEDGER` |
+| Ledger | 4 hard-coded rows + any lot- or voice-created row, CSV export in the browser | `LEDGER` |
+| Hardware | Specs only: passive bin camera, auto-sorting bin, one lot photo | Routes card |
 | Voice | Optional FastAPI gateway: ElevenLabs Flash TTS + Scribe STT, deterministic intent parser, mock mode; browser speech/text fallback | `voice_api.py`, `assets/app.js` |
 | Hosting | Static files on GitHub Pages; optional Streamlit wrapper for cloud deploy | `index.html`, `streamlit_app.py` |
 
 There is **no database and no trained model** in the current build, and nothing
 is persisted. The one backend is the optional Awaaz gateway; if it is not
 running, voice falls back to the browser and then to typed text. The UI labels
-the classifier, sensors, routing and voice providers so the demo never claims
-otherwise.
+the lot check, classifier, sensors, routing, hardware and voice providers so the
+demo never claims otherwise.
 
 ---
 
@@ -199,6 +201,11 @@ A YOLOv8n detector (3.2 M params) finds boxes; each crop is resized to 224 and
 classified. If more than one box exceeds the area threshold, the result becomes
 "multiple items — split the bag" rather than a single material. Single-item
 photos skip detection and classify the full frame.
+
+The same detector runs on **one lot photo** taken by the collector at pickup. It
+is not a per-item gate: it estimates purity and flags contamination classes for
+the lot as a whole. Households only use the single-item path when they are
+unsure about one object.
 
 For Week 1 this can ship as a simpler gate: if the classifier's conformal set is
 large and the image has high edge density in several regions, ask the user to
@@ -547,6 +554,8 @@ km/fuel/CO₂ live.
 | Collector passport / reputation | Demo data; no KYC, verified pickups or UPI transfer |
 | Live price feedback | Hand-authored clean vs contaminated reference prices, not a market feed |
 | Source quality score | Demo data, scoring rule described |
+| Lot check | Real interaction; purity, contamination and score deltas are hand-authored |
+| Passive bin camera / auto-sorting bin | Specified options with costs and failure modes; nothing installed |
 | Camera preview | Real `getUserMedia`, classification scripted |
 | Awaaz “ElevenLabs ready” | Real only when the FastAPI gateway has a key; otherwise browser speech, mock or typed fallback |
 | Voice-created pickup / spoken receipt | Real browser parsing and SHA-256 of the receipt text; no Ed25519 signature, no external anchor, no audio retention |
@@ -892,3 +901,117 @@ UPI transfer is initiated.
 
 No pilot is required for this demo. The 6–8 weeks is the real-world test, not
 the length of the handoff.
+
+---
+
+## 22. Verification model: exception scanning, lot checks, passive bins
+
+The first version of the product implied that every family must scan every item
+before throwing it away. That is not a product; it is a chore. It also produces
+bad data, because the people who scan most carefully are not the people who
+handle the material.
+
+The corrected model puts verification where the material actually changes hands.
+
+### 22.1 The routine path
+
+1. A household keeps the normal wet/dry split. No camera, no app, no per-item
+   decision.
+2. The bag or bin arrives at the collection point.
+3. The collector or society manager takes **one photo of the lot** and enters
+   the collector-confirmed weight.
+4. The check returns purity, contamination classes and a decision:
+   - **Accept** → list the lot;
+   - **Accept with deduction** → list, but the price band reflects the
+     contamination;
+   - **Reject** → re-sort before listing;
+   - **Hazard found** → isolate, certified handler, no points.
+5. The buyer's acceptance or rejection at the gate is the ground truth.
+6. The source score updates from lot checks and buyer acceptance, not from app
+   usage.
+
+This is the flow the demo now shows first on **Sort & verify → Verify a lot**.
+
+### 22.2 The exception path
+
+The single-item scanner remains, but only for the cases where it earns its
+place: a battery, an unfamiliar wrapper, a dirty tub, a material the household
+has not seen before. The UI labels it **Exception scanner · optional** and says
+plainly that routine bags do not need it.
+
+The scanner still carries the full contract: conformal set, hazardous override,
+unknown/OOD path, price feedback. It is just no longer the front door.
+
+### 22.3 Sampling and ground truth
+
+- **Random spot-checks** at pickup, not exhaustive checks.
+- **Buyer acceptance** is the label that settles the source score.
+- A rejected lot is not silently discarded; it is re-sorted and re-checked.
+- Overrides (a user picking a class from a multi-class set) go to a review queue.
+- Metrics that matter: lot checks per pickup, contamination caught before the
+  buyer, buyer rejection rate, and **scans per household per week** — which
+  should trend toward zero.
+
+### 22.4 Passive cameras
+
+An optional ESP32-CAM on a shared society bin can watch the opening and raise an
+alert only when the lot looks wrong. It requires no user action. It is not a
+replacement for the lot check: it is an early-warning signal, and it has real
+costs — power, mounting, privacy, false alerts and maintenance.
+
+Recommendation: one or two shared bins in the pilot, not every household bin.
+
+### 22.5 Automatic sorting bins
+
+Automatic sorting bins exist commercially and are buildable by a student team.
+A minimal prototype:
+
+- **Brain:** Raspberry Pi, or ESP32-CAM for a simpler version.
+- **Vision:** a small MobileNet / TensorFlow Lite classifier for plastic, paper,
+  glass, metal and reject.
+- **Sensors:** inductive proximity for metal, capacitive/moisture for wet waste,
+  load cell for weight. Metal and wet are far more reliable with sensors than
+  with the camera alone.
+- **Mechanism:** one servo-driven flap or a rotating tray over 3–4 containers.
+- **Fill:** one ultrasonic sensor per container.
+- **Cost:** roughly ₹3,000–6,000 for a prototype, before enclosure and
+  maintenance.
+
+Honest limits:
+
+- Accuracy drops on wet, crushed, dirty and nested items.
+- Moving parts jam; a bin that jams is worse than a bin that does not sort.
+- Hazardous items must go to a separate **locked reject** container.
+- A low-confidence item must go to an **“unsure”** container for human review,
+  not be forced into a class.
+- It costs more than a normal bin, so it suits **shared points** — campus,
+  mall, society gate, office — not every household.
+- It improves purity but does not remove the need for a lot check, because a
+  misclassified item still has to be caught before it reaches a buyer.
+
+Recommendation: ship the **lot photo first** because it needs no hardware and
+works on any phone. Add a passive camera to shared bins in the pilot. Treat the
+auto-sorting bin as a later campus/mall pilot, not the core product.
+
+### 22.6 What this changes in the pitch
+
+| Old phrasing | New phrasing |
+|---|---|
+| “A user scans an item before throwing it away.” | “Households sort as usual; the collector verifies each lot with one photo.” |
+| “Camera-first segregation for every item.” | “Exception-only scanning, plus a lot-level check at pickup.” |
+| “The classifier tells every family what to do.” | “The classifier helps when someone is unsure; the buyer acceptance is the truth.” |
+| “We need a smart bin in every home.” | “Passive cameras on shared bins; auto-sorting bins only where volume justifies them.” |
+
+The quality score is stronger under the new model, because it is built from real
+acceptance data instead of user effort.
+
+### 22.7 Demo vs production
+
+| Claim | Status |
+|---|---|
+| Lot check UI | Real interaction; purity, contamination and score deltas are hand-authored demo values |
+| Exception scanner | Scripted 13-item classifier; same UI contract as the planned model |
+| Passive camera | Specified option; nothing installed |
+| Auto-sorting bin | Specified option with cost and failure modes; no prototype in this build |
+| Buyer acceptance as ground truth | Product rule; no live buyer in the demo |
+| Source score update | Real arithmetic on demo inputs; not a live market feed |
