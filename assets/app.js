@@ -27,8 +27,30 @@
     cameraOn: false,
     routeOptimized: false,
     skipLow: true,
-    sensorsPinged: 0
+    sensorsPinged: 0,
+    voice: {
+      lang: 'hi',
+      base: '',
+      mode: 'text',
+      consent: false,
+      recording: false,
+      busy: false,
+      pending: null,
+      last: null,
+      created: 0,
+      streak: { months: 2, handoffs: 3, lastDay: '' }
+    }
   };
+
+  /* localStorage can throw in private/file contexts — never let that break the demo. */
+  function store(key, value) {
+    try {
+      if (value === undefined) return localStorage.getItem(key) || '';
+      localStorage.setItem(key, value);
+    } catch (_) { /* ignore */ }
+    return value;
+  }
+  state.voice.base = store('lg.voiceApi').trim();
 
   const fmt = (n, decimals = 0) =>
     Number(n).toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -39,6 +61,18 @@
   const esc = (str) => String(str).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
+
+  /* Never reuse a listing id, whether the row came from a scan or from Awaaz. */
+  function nextListingId() {
+    const used = new Set(
+      state.listings
+        .map((l) => Number(String(l.id || '').replace(/\D/g, '')))
+        .filter((n) => Number.isFinite(n) && n > 0)
+    );
+    let n = 1043;
+    while (used.has(n)) n += 1;
+    return `LG-${n}`;
+  }
 
   /* ---------------------------------------------------------
      Data — materials
@@ -306,7 +340,7 @@
   /* ---------------------------------------------------------
      Navigation
      --------------------------------------------------------- */
-  const PAGE_TITLES = { home: 'Overview', scan: 'Scan & sort', market: 'Marketplace', routes: 'Routes & bins', impact: 'Impact' };
+  const PAGE_TITLES = { home: 'Overview', scan: 'Scan & sort', market: 'Marketplace', routes: 'Routes & bins', impact: 'Impact', awaaz: 'Awaaz · voice' };
 
   function navigate(page, force = false) {
     if (!PAGE_TITLES[page]) return;
@@ -332,6 +366,7 @@
       }, 380);
     }
     if (leaving === 'scan' && page !== 'scan') stopCamera();
+    if (leaving === 'awaaz' && page !== 'awaaz') stopVoiceCapture();
 
     $('#crumbLabel').textContent = PAGE_TITLES[page];
     $$('.side-link[data-nav]').forEach((b) => b.classList.toggle('active', b.dataset.nav === page));
@@ -721,6 +756,7 @@
       </div>
 
       <div class="result-actions">
+        <button class="btn btn-ghost" data-scan-listen><svg class="icon"><use href="#i-volume"/></svg> Sunnein</button>
         <button class="btn btn-outline" data-scan-retake>Scan again</button>
         <button class="btn btn-primary" data-scan-confirm ${size > 1 && !picked ? 'disabled' : ''}>${
           s.hazard ? 'Request certified pickup'
@@ -789,7 +825,7 @@
 
     const material = state.pick || s.name;
     const listing = {
-      id: 'LG-' + (1043 + state.listings.length),
+      id: nextListingId(),
       material: material === 'PET bottle' ? 'PET bottles' : material,
       category: s.category,
       emoji: s.emoji,
@@ -1277,6 +1313,7 @@
           <div class="sig-row">
             ${e.sigs.map((s) => `<span class="sig-chip">${icon('check')} ${s}</span>`).join('')}
             <span class="sig-badge">2-of-2</span>
+            ${e.pendingAnchor ? '<span class="ledger-pending">next anchor</span>' : ''}
           </div>
           <span class="ledger-hash">${e.hash}</span>
         </div>
@@ -1289,6 +1326,7 @@
           <span class="merkle-label">Daily Merkle root · ${MERKLE.day}</span>
           <b>${MERKLE.root}</b>
           <small>Public repo commit ${MERKLE.commit} + OpenTimestamps</small>
+          ${MERKLE.pending ? `<small class="merkle-pending">${MERKLE.pending} voice row${MERKLE.pending === 1 ? '' : 's'} queued for the next daily anchor — not in this root yet.</small>` : ''}
         </div>
         <button class="btn btn-soft btn-sm" data-verify-anchor>${icon('shield')} Verify anchor</button>`;
     }
@@ -1349,6 +1387,924 @@
   }
 
   /* ---------------------------------------------------------
+     Awaaz — voice layer
+     Intent parsing mirrors voice_api.py and stays deterministic:
+     no LLM sits between a transcript and a safety rule.
+     --------------------------------------------------------- */
+  const VOICE_MATERIALS = [
+    { material: 'PET bottles', sample: 'pet', price: 22, aliases: ['pet', 'paani ki bottle', 'water bottle', 'plastic bottle', 'बोतल', 'पीईटी'] },
+    { material: 'Glass jars', sample: 'glass', price: 3, aliases: ['glass', 'kaanch', 'काँच', 'कांच', 'jar'] },
+    { material: 'Cardboard', sample: 'cardboard', price: 14, aliases: ['cardboard', 'carton', 'kagaz', 'card board', 'कार्डबोर्ड', 'गत्ता'] },
+    { material: 'Textile offcuts', sample: 'textile', price: 18, aliases: ['textile', 'kapda', 'cloth', 'fabric', 'कपड़ा'] },
+    { material: 'E-waste', sample: 'ewaste', price: 65, aliases: ['e-waste', 'ewaste', 'electronic', 'charger', 'ई-कचरा'] },
+    { material: 'Battery', sample: 'battery', price: 0, aliases: ['battery', 'बैटरी'] },
+    { material: 'Food scraps', sample: 'food', price: 4, aliases: ['food', 'wet', 'geela', 'banana', 'compost', 'गीला', 'खाना'] },
+    { material: 'Mixed plastic', sample: 'mixed', price: 0, aliases: ['plastic', 'wrapper', 'polythene', 'प्लास्टिक'] }
+  ];
+
+  const VOICE_NUM_WORDS = {
+    ek: 1, do: 2, teen: 3, char: 4, paanch: 5, panch: 5, chhah: 6, chah: 6,
+    saat: 7, aath: 8, nau: 9, das: 10, bees: 20, pachees: 25, tees: 30,
+    chalis: 40, pachas: 50, saath: 60, sau: 100, एक: 1, दो: 2, तीन: 3,
+    चार: 4, पांच: 5, छह: 6, सात: 7, आठ: 8, नौ: 9, दस: 10,
+    बीस: 20, पच्चीस: 25, तीस: 30, चालीस: 40, पचास: 50, साठ: 60
+  };
+
+  const VOICE_LOCALITIES = ['sector 12', 'sector 21', 'green park', 'hauz khas', 'saket', 'dwarka', 'vasant kunj', 'okhla', 'iit delhi'];
+
+  const VOICE_LABELS = {
+    create_listing: 'Pickup draft', get_status: 'Pickup status',
+    confirm_pickup: 'Confirm handoff', explain_item: 'Sorting help', clarify: 'Need one detail'
+  };
+
+  function voiceFindMaterial(text) {
+    for (const item of VOICE_MATERIALS) {
+      if (item.aliases.some((a) => text.includes(a))) return item;
+    }
+    return null;
+  }
+
+  function voiceFindQty(text) {
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(?:kilo|kgs?|kg|किलो)/);
+    if (match) return Number(match[1]);
+    for (const [word, value] of Object.entries(VOICE_NUM_WORDS)) {
+      if (new RegExp(`\\b${word}\\b`).test(text)) return value;
+    }
+    return null;
+  }
+
+  function voiceFindLocality(text) {
+    if (['sector 12', 'sector 21', 'green park', 'hauz khas', 'saket', 'dwarka', 'vasant kunj', 'okhla', 'iit delhi'].some((w) => text.includes(w))) {
+      const locality = VOICE_LOCALITIES.find((w) => text.includes(w));
+      if (locality === 'sector 12') return 'Sector 12';
+      if (locality === 'iit delhi') return 'IIT Delhi';
+      return locality.replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+    const match = text.match(/sector\s*(\d+)/);
+    return match ? `Sector ${match[1]}` : null;
+  }
+
+  function voiceFindWhen(text) {
+    let day = '';
+    if (/\b(kal|tomorrow)\b/.test(text) || text.includes('कल')) day = 'tomorrow';
+    else if (/\b(aaj|today)\b/.test(text) || text.includes('आज')) day = 'today';
+    const clock = text.match(/(\d{1,2})\s*(?:baje|bje|am|pm|बजे)/);
+    const hour = clock ? clock[1] : '';
+    if (day && hour) return `${day} ${hour}:00`;
+    if (day) return day;
+    if (hour) return `${hour}:00`;
+    return 'as soon as possible';
+  }
+
+  function voiceWhenLabel(when) {
+    if (!when) return '—';
+    return when
+      .replace('tomorrow', 'kal')
+      .replace('today', 'aaj')
+      .replace('as soon as possible', 'jaldi');
+  }
+
+  function voiceBand(price) {
+    return price ? [Number((price * 0.85).toFixed(1)), Number((price * 1.15).toFixed(1))] : null;
+  }
+
+  function voiceReply(intent, slots) {
+    const lang = state.voice.lang;
+    const material = slots.material || '';
+    const qty = Number(slots.qty_kg || 0);
+    const locality = slots.locality || '';
+    const when = slots.when || '';
+    const band = slots.band || [0, 0];
+    const total = [Math.round(band[0] * qty), Math.round(band[1] * qty)];
+
+    if (intent === 'create_listing') {
+      if (slots.hazard) {
+        if (lang === 'en') return `This is a hazardous stream: ${qty} kg of ${material}. I will request a certified handler. No marketplace listing and no points.`;
+        if (lang === 'hi') return `यह खतरनाक कचरा है: ${qty} किलो ${material}. मैं प्रमाणित हैंडलर को अनुरोध भेजूँगा। कोई मार्केटप्लेस लिस्टिंग नहीं और कोई पॉइंट नहीं।`;
+        return `Yeh hazardous waste hai: ${qty} kilo ${material}. Main certified handler ko request bhejunga. Koi listing nahi, koi points nahi.`;
+      }
+      if (lang === 'en') {
+        return `${qty} kg of ${material} from ${locality}, ${when}. The band is ₹${bandEdge(band[0])}–${bandEdge(band[1])} per kg, about ₹${fmt(total[0])}–${fmt(total[1])}. Shall I create the pickup?`;
+      }
+      if (lang === 'hi') {
+        return `${qty} किलो ${material}, ${locality}, ${voiceWhenLabel(when)}. भाव ₹${bandEdge(band[0])}–${bandEdge(band[1])} प्रति किलो, कुल ₹${fmt(total[0])}–${fmt(total[1])}. क्या मैं पिकअप बना दूँ?`;
+      }
+      return `${qty} kilo ${material}, ${locality}, ${voiceWhenLabel(when)}. Rate ₹${bandEdge(band[0])}–${bandEdge(band[1])} per kilo, total ₹${fmt(total[0])}–${fmt(total[1])}. Pickup bana doon?`;
+    }
+
+    if (intent === 'get_status') {
+      const id = slots.listing_id || 'LG-1043';
+      if (lang === 'en') return `${id} was collected at 11:05, delivered at 14:40 and accepted by the buyer at 15:02. The ledger row is intact.`;
+      if (lang === 'hi') return `${id} सुबह 11:05 पर उठाया गया, 14:40 पर पहुँचा और 15:02 पर खरीदार ने स्वीकार किया। लेजर पंक्ति सही है।`;
+      return `${id} 11:05 baje uthaya gaya, 14:40 par pahuncha aur 15:02 par buyer ne accept kiya. Ledger row intact hai.`;
+    }
+
+    if (intent === 'confirm_pickup') {
+      if (!slots.pending_task) {
+        if (lang === 'en') return 'There is no pickup waiting to confirm. Tell me the material and weight first.';
+        if (lang === 'hi') return 'अभी कोई पिकअप पुष्टि के लिए तैयार नहीं है। पहले सामान और वजन बताइए।';
+        return 'Abhi koi pickup confirm karne ke liye ready nahi hai. Pehle material aur weight bataiye.';
+      }
+      if (lang === 'en') return 'Confirmed. I have written the spoken receipt to the ledger.';
+      if (lang === 'hi') return 'पुष्टि हो गई। बोली हुई रसीद लेजर में दर्ज कर दी है।';
+      return 'Confirm ho gaya. Bola hua receipt ledger mein darj kar diya.';
+    }
+
+    if (intent === 'explain_item') {
+      if (slots.hazard) {
+        if (lang === 'en') return 'This is a hazardous stream. Do not put it in the dry bin. Hand it to a CPCB-registered handler.';
+        if (lang === 'hi') return 'यह खतरनाक कचरा है। सूखे कचरे में न डालें। सीपीसीबी पंजीकृत हैंडलर को दें।';
+        return 'Yeh hazardous waste hai. Dry bin mein mat daalein. CPCB-registered handler ko dein.';
+      }
+      if (material) {
+        if (lang === 'en') return `${material}: keep it clean and dry. The current band is ₹${bandEdge(band[0])}–${bandEdge(band[1])} per kg.`;
+        if (lang === 'hi') return `${material}: साफ और सूखा रखें। अभी भाव ₹${bandEdge(band[0])}–${bandEdge(band[1])} प्रति किलो है।`;
+        return `${material}: saaf aur sookha rakhein. Abhi rate ₹${bandEdge(band[0])}–${bandEdge(band[1])} per kilo hai.`;
+      }
+    }
+
+    if (lang === 'en') return "I'm not sure. Can you repeat the material and the weight?";
+    if (lang === 'hi') return 'मुझे पक्का नहीं पता। क्या आप दोबारा बता सकते हैं — कौन सा सामान और कितने किलो?';
+    return 'Mujhe pakka nahi pata. Kya aap dobara bata sakte hain — kaun sa material aur kitne kilo?';
+  }
+
+  function parseVoiceIntent(raw) {
+    const lang = state.voice.lang;
+    const text = String(raw || '').trim().toLowerCase();
+    const pendingTask = Boolean(state.voice.pending);
+
+    const statusMatch = text.match(/(lg-\d{3,6})/);
+    if (statusMatch || ['status', 'kahan', 'track', 'where is'].some((w) => text.includes(w))) {
+      const slots = { listing_id: statusMatch ? statusMatch[1].toUpperCase() : 'LG-1043', pending_task: pendingTask };
+      return { intent: 'get_status', confidence: 0.9, slots, tools: ['get_status'], reply: voiceReply('get_status', slots) };
+    }
+
+    const confirmTokens = new Set(['haan', 'ha', 'confirm', 'theek', 'ok', 'accept', 'हाँ', 'ठीक']);
+    const words = text.replace(/[.,!?।]/g, '').split(/\s+/).filter(Boolean);
+    if (words.length <= 6 && words.some((w) => confirmTokens.has(w))) {
+      const slots = { pending_task: pendingTask };
+      return {
+        intent: 'confirm_pickup',
+        confidence: pendingTask ? 0.88 : 0.4,
+        slots,
+        tools: pendingTask ? ['confirm_pickup', 'append_ledger'] : [],
+        reply: voiceReply('confirm_pickup', slots)
+      };
+    }
+
+    const found = voiceFindMaterial(text);
+    const qty = voiceFindQty(text);
+    const locality = voiceFindLocality(text);
+    const when = voiceFindWhen(text);
+    const hazard = Boolean(found && (found.sample === 'ewaste' || found.sample === 'battery'));
+    const band = found && !hazard ? voiceBand(found.price) : null;
+
+    if (found && ['kaise', 'why', 'explain', 'bin', 'sort', 'कैसे', 'कौन सा'].some((w) => text.includes(w))) {
+      const slots = { material: found.material, sample: found.sample, band, hazard };
+      return { intent: 'explain_item', confidence: 0.8, slots, tools: ['explain_item'], reply: voiceReply('explain_item', slots) };
+    }
+
+    if (found && qty) {
+      const confidence = locality && when !== 'as soon as possible' ? 0.92 : locality ? 0.85 : 0.72;
+      const slots = {
+        material: found.material,
+        sample: found.sample,
+        qty_kg: qty,
+        locality: locality || 'Green Park',
+        when,
+        price_per_kg: hazard ? 0 : found.price,
+        band,
+        hazard,
+        pending_task: pendingTask
+      };
+      return {
+        intent: 'create_listing',
+        confidence,
+        slots,
+        tools: ['create_listing', 'get_matches'],
+        reply: voiceReply('create_listing', slots)
+      };
+    }
+
+    const confidence = found ? 0.45 : 0.2;
+    const slots = { material: found ? found.material : null, qty_kg: qty, locality, when, band, pending_task: pendingTask };
+    return { intent: 'clarify', confidence, slots, tools: [], reply: voiceReply('clarify', slots) };
+  }
+
+  /* ---- status + provider ---------------------------------- */
+  function voiceProviderLabel() {
+    if (state.voice.mode === 'elevenlabs') return 'ElevenLabs ready';
+    if (state.voice.mode === 'mock') return 'Mock voice API';
+    if (state.voice.mode === 'server-missing') return 'Server key missing';
+    if (state.voice.mode === 'offline') return 'Gateway offline';
+    return 'Browser voice';
+  }
+
+  function voiceRestoreStatus() {
+    const live = state.voice.mode === 'elevenlabs' || state.voice.mode === 'mock';
+    voiceSetStatus(live ? 'live' : 'fallback', voiceProviderLabel());
+  }
+
+  function voiceSetStatus(kind, label) {
+    const el = $('#voiceStatus');
+    if (!el) return;
+    el.className = `voice-status${kind ? ' ' + kind : ''}`;
+    const span = el.querySelector('span');
+    if (span) span.textContent = label;
+  }
+
+  function voiceNormalizeBase(value) {
+    return String(value || '').trim().replace(/\/+$/, '');
+  }
+
+  async function fetchWithTimeout(url, options = {}, ms = 6000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function checkVoiceHealth(manual = false) {
+    const base = voiceNormalizeBase(state.voice.base);
+    if (!base) {
+      state.voice.mode = 'browser';
+      voiceSetStatus('fallback', 'Browser voice');
+      const note = $('#voiceConfigNote');
+      if (note) note.textContent = 'No gateway set. Falling back to the browser voice, then to text.';
+      if (manual) toast('Browser voice', 'Add a FastAPI gateway URL to use ElevenLabs. The key must stay on that server.', 'warn');
+      return;
+    }
+    try {
+      const res = await fetchWithTimeout(`${base}/api/voice/health`, {}, 5000);
+      const data = await res.json();
+      if (data.configured) {
+        state.voice.mode = data.provider === 'mock' ? 'mock' : 'elevenlabs';
+        voiceSetStatus('live', voiceProviderLabel());
+        const note = $('#voiceConfigNote');
+        if (note) {
+          note.textContent = `Connected · ${data.tts_model || 'TTS'} + ${data.stt_model || 'STT'} · ${fmt(data.daily_char_cap || 0)} chars/day cap.`;
+        }
+        if (manual) toast('Voice gateway ready', `${data.provider === 'mock' ? 'Mock mode' : 'ElevenLabs'} · key stays server-side.`);
+      } else {
+        state.voice.mode = 'server-missing';
+        voiceSetStatus('fallback', 'Server key missing');
+        const note = $('#voiceConfigNote');
+        if (note) note.textContent = 'The gateway is running without ELEVENLABS_API_KEY. Set it on the server and restart.';
+        if (manual) toast('No server key', 'Set ELEVENLABS_API_KEY on the FastAPI host. Never put it in this page.', 'warn');
+      }
+    } catch (_) {
+      state.voice.mode = 'offline';
+      voiceSetStatus('fallback', 'Gateway offline');
+      const note = $('#voiceConfigNote');
+      if (note) note.textContent = 'Could not reach the gateway. Browser voice is used instead.';
+      if (manual) toast('Gateway unreachable', 'Start it with: uvicorn voice_api:app --port 8000', 'warn');
+    }
+  }
+
+  /* ---- speaking ------------------------------------------- */
+  let currentAudio = null;
+  let currentUtterance = null;
+
+  function stopSpeaking() {
+    if (currentAudio) {
+      try { currentAudio.pause(); } catch (_) { /* ignore */ }
+      currentAudio = null;
+    }
+    if ('speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch (_) { /* ignore */ }
+    }
+    currentUtterance = null;
+  }
+
+  function browserSpeak(text, lang) {
+    if (!('speechSynthesis' in window)) return false;
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang === 'en' ? 'en-IN' : 'hi-IN';
+      utter.rate = 0.98;
+      utter.pitch = 1;
+      const voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+      const exact = voices.find((v) => (v.lang || '').toLowerCase() === utter.lang.toLowerCase());
+      const near = voices.find((v) => (v.lang || '').toLowerCase().startsWith(lang === 'en' ? 'en' : 'hi'));
+      if (exact || near) utter.voice = exact || near;
+      currentUtterance = utter;
+      utter.onend = () => { currentUtterance = null; };
+      window.speechSynthesis.speak(utter);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function voiceSpeak(text, lang = state.voice.lang, quality = 'flash') {
+    const clean = String(text || '').trim();
+    if (!clean) return false;
+    stopSpeaking();
+    const base = voiceNormalizeBase(state.voice.base);
+
+    if (base) {
+      try {
+        const res = await fetchWithTimeout(`${base}/api/voice/tts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: clean, lang: lang === 'en' ? 'en' : 'hi', quality })
+        }, 30000);
+        if (res.ok) {
+          const blob = await res.blob();
+          if (blob.size > 0) {
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            currentAudio = audio;
+            audio.addEventListener('ended', () => { URL.revokeObjectURL(url); currentAudio = null; });
+            try {
+              await audio.play();
+              return true;
+            } catch (_) {
+              URL.revokeObjectURL(url);
+              currentAudio = null;
+            }
+          }
+        }
+      } catch (_) { /* fall through to browser */ }
+    }
+    return browserSpeak(clean, lang);
+  }
+
+  /* ---- recording + transcription -------------------------- */
+  let mediaRecorder = null;
+  let mediaStream = null;
+  let recordedChunks = [];
+  let recordTimer = null;
+  let browserRecognition = null;
+
+  function voiceHintText() {
+    return state.voice.lang === 'en'
+      ? 'English mode. Audio is processed on the server and never stored.'
+      : 'Hindi, Hinglish ya English. Audio server par store nahi hota.';
+  }
+
+  function voiceRecordingUI(on) {
+    const btn = $('#micBtn');
+    const wave = $('#voiceWave');
+    const label = $('#micLabel');
+    const hint = $('#voiceHint');
+    if (btn) btn.setAttribute('aria-pressed', String(on));
+    if (wave) wave.classList.toggle('active', on);
+    if (label) label.textContent = on ? 'Sun rahe hain…' : 'Tap to speak';
+    if (hint) hint.textContent = on ? 'Bolna shuru karein. 12 second tak.' : voiceHintText();
+  }
+
+  function stopVoiceCapture() {
+    if (recordTimer) { clearTimeout(recordTimer); recordTimer = null; }
+    if (browserRecognition) {
+      try { browserRecognition.stop(); } catch (_) { /* ignore */ }
+      return;
+    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      try { mediaRecorder.stop(); } catch (_) { /* ignore */ }
+    }
+  }
+
+  function startBrowserRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      state.voice.recording = false;
+      voiceRecordingUI(false);
+      toast('No microphone API', 'Type the request instead. The gateway route still works.', 'warn');
+      const input = $('#voiceText');
+      if (input) input.focus();
+      return;
+    }
+    try {
+      const rec = new SR();
+      browserRecognition = rec;
+      state.voice.recording = true;
+      voiceRecordingUI(true);
+      rec.lang = state.voice.lang === 'en' ? 'en-IN' : 'hi-IN';
+      rec.interimResults = true;
+      rec.continuous = false;
+      rec.maxAlternatives = 1;
+      rec.onresult = (event) => {
+        let interim = '';
+        let final = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const chunk = event.results[i][0].transcript;
+          if (event.results[i].isFinal) final += chunk;
+          else interim += chunk;
+        }
+        const input = $('#voiceText');
+        if (input) input.value = (final || interim).trim();
+      };
+      rec.onerror = (event) => {
+        state.voice.recording = false;
+        voiceRecordingUI(false);
+        browserRecognition = null;
+        const denied = event.error === 'not-allowed' || event.error === 'service-not-allowed';
+        toast(denied ? 'Microphone blocked' : 'Did not catch that', denied ? 'Allow microphone access, or type the request.' : 'Try again, or type the request.', 'warn');
+      };
+      rec.onend = () => {
+        const wasRecording = state.voice.recording;
+        state.voice.recording = false;
+        voiceRecordingUI(false);
+        browserRecognition = null;
+        const input = $('#voiceText');
+        const text = input ? input.value.trim() : '';
+        if (wasRecording && text) runVoiceIntent(text);
+      };
+      rec.start();
+    } catch (_) {
+      state.voice.recording = false;
+      voiceRecordingUI(false);
+      toast('Microphone unavailable', 'Type the request instead.', 'warn');
+    }
+  }
+
+  async function transcribeAndRun(blob) {
+    const base = voiceNormalizeBase(state.voice.base);
+    if (!base) { startBrowserRecognition(); return; }
+    voiceSetStatus('live', 'Transcribing…');
+    try {
+      const form = new FormData();
+      form.append('audio', blob, 'voice.webm');
+      form.append('lang', state.voice.lang);
+      const res = await fetchWithTimeout(`${base}/api/voice/stt`, { method: 'POST', body: form }, 45000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.text) throw new Error('stt');
+      const input = $('#voiceText');
+      if (input) input.value = data.text;
+      voiceSetStatus('live', data.provider === 'mock' ? 'Mock transcript' : 'ElevenLabs Scribe');
+      runVoiceIntent(data.text);
+    } catch (_) {
+      state.voice.recording = false;
+      voiceRecordingUI(false);
+      voiceSetStatus('fallback', voiceProviderLabel());
+      toast('Could not transcribe', 'Type the same sentence below — the intent parser still runs.', 'warn');
+      const input = $('#voiceText');
+      if (input) input.focus();
+    }
+  }
+
+  async function startMediaRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      startBrowserRecognition();
+      return;
+    }
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordedChunks = [];
+      const mime = window.MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+      mediaRecorder = mime ? new MediaRecorder(mediaStream, { mimeType: mime }) : new MediaRecorder(mediaStream);
+      mediaRecorder.ondataavailable = (event) => { if (event.data && event.data.size) recordedChunks.push(event.data); };
+      mediaRecorder.onstop = () => {
+        if (recordTimer) { clearTimeout(recordTimer); recordTimer = null; }
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+        }
+        state.voice.recording = false;
+        voiceRecordingUI(false);
+        const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        mediaRecorder = null;
+        if (blob.size > 0) transcribeAndRun(blob);
+        else toast('Nothing recorded', 'Hold the mic a little longer, or type the request.', 'warn');
+      };
+      mediaRecorder.start();
+      state.voice.recording = true;
+      voiceRecordingUI(true);
+      recordTimer = setTimeout(stopVoiceCapture, 12000);
+    } catch (_) {
+      toast('Microphone blocked', 'Allow access, or use the browser/typed fallback.', 'warn');
+      startBrowserRecognition();
+    }
+  }
+
+  function voiceToggleMic() {
+    if (state.voice.recording) { stopVoiceCapture(); return; }
+    if (!state.voice.consent) {
+      toast('Consent needed', 'Tick the DPDP consent box before speaking. The transcript is kept; the audio is not.', 'warn');
+      const box = $('#voiceConsent');
+      if (box) box.focus();
+      return;
+    }
+    if (voiceNormalizeBase(state.voice.base)) startMediaRecording();
+    else startBrowserRecognition();
+  }
+
+  /* ---- result rendering + tools --------------------------- */
+  function voiceSlotRows(data) {
+    const slots = data.slots || {};
+    if (data.intent === 'get_status') {
+      return [['Listing', slots.listing_id || 'LG-1043'], ['Ledger', 'Co-signed · intact']];
+    }
+    const rows = [
+      ['Material', slots.material || '—'],
+      ['Weight', slots.qty_kg ? `${slots.qty_kg} kg` : '—'],
+      ['Locality', slots.locality || '—'],
+      ['When', voiceWhenLabel(slots.when)]
+    ];
+    if (slots.band && slots.band[1]) rows.push(['Rate band', `₹${bandEdge(slots.band[0])}–${bandEdge(slots.band[1])}/kg`]);
+    return rows;
+  }
+
+  function renderVoiceResult(data, extra = {}) {
+    const body = $('#voiceResultBody');
+    const empty = $('#voiceEmpty');
+    if (!body || !empty) return;
+    empty.hidden = true;
+    body.hidden = false;
+
+    const low = (data.confidence || 0) < 0.7;
+    const warn = low || data.intent === 'clarify' || data.slots?.hazard;
+    const pct = Math.round((data.confidence || 0) * 100);
+    const created = extra.created || null;
+    const receipt = extra.receipt || null;
+
+    const actions = [];
+    if (data.intent === 'create_listing' && !created && !low) {
+      actions.push(`<button class="btn btn-primary" data-voice-create>${icon('check')} Create pickup</button>`);
+    }
+    if (data.intent === 'get_status') {
+      actions.push(`<button class="btn btn-outline" data-nav="impact">${icon('shield')} Open ledger</button>`);
+    }
+    if (state.voice.pending && !receipt) {
+      actions.push(`<button class="btn btn-primary" data-voice-confirm>${icon('shield')} Co-sign &amp; ledger it</button>`);
+    }
+    if (!receipt) {
+      actions.push(`<button class="btn btn-ghost" data-voice-say>${icon('volume')} Say it back</button>`);
+    }
+
+    body.innerHTML = `
+      <div class="voice-result-head">
+        <span class="intent-badge ${warn ? 'warn' : ''}">${VOICE_LABELS[data.intent] || 'Result'}</span>
+        <span class="conf-badge ${low ? 'low' : ''}">${pct}% confidence · gate 70%</span>
+      </div>
+      <p class="voice-reply ${warn ? 'warn' : ''}">${esc(data.reply)}</p>
+      ${low ? `<p class="status-line">${icon('alert')} Below the confidence gate. Nothing was created or routed — repeat the material and weight.</p>` : ''}
+      ${data.slots?.hazard ? `<p class="status-line">${icon('alert')} Hazardous routing is decided by LoopGrid’s rule engine, not by the voice model. No marketplace listing.</p>` : ''}
+      ${created ? `<p class="status-line">${icon('check')} ${esc(created.label)}</p>` : ''}
+      <div class="slot-grid">
+        ${voiceSlotRows(data).map(([k, v]) => `<div class="slot"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}
+      </div>
+      <div class="tool-row">
+        ${(data.tools || []).map((t) => `<span class="tool-chip">${esc(t)}()</span>`).join('') || '<span class="tool-chip">no tool called</span>'}
+        <span class="tool-chip">rule-based</span>
+      </div>
+      <div class="status-line">${icon('shield')} Transcript only. No raw audio is written to disk, and a low-confidence result never guesses.</div>
+      ${receipt ? `
+        <div class="receipt" id="voiceReceipt">
+          <div class="receipt-head"><b>Spoken receipt</b><span class="chip good">Ledger row</span></div>
+          <p>${esc(receipt.text)}</p>
+          <code class="receipt-hash">sha256 0x${receipt.hash.slice(0, 10)}…${receipt.hash.slice(-6)}</code>
+          <p class="receipt-note">Only this receipt <b>text</b> is hashed and ledgered. The audio is never hashed or stored. Queued for the next daily anchor, not today’s root.</p>
+        </div>` : ''}
+      ${actions.length ? `<div class="voice-actions">${actions.join('')}</div>` : ''}
+    `;
+    body.classList.remove('voice-in');
+    void body.offsetWidth;
+    body.classList.add('voice-in');
+  }
+
+  async function sha256Hex(text) {
+    try {
+      if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+        const bytes = new TextEncoder().encode(text);
+        const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (_) { /* fall through */ }
+    let a = 0x811c9dc5;
+    let b = 0x01000193;
+    const out = [];
+    for (let i = 0; i < 32; i += 1) {
+      a ^= text.charCodeAt(i % Math.max(1, text.length)) || i;
+      a = Math.imul(a, 16777619) >>> 0;
+      b = Math.imul(b ^ a, 2246822519) >>> 0;
+      out.push(((a ^ b) >>> 0).toString(16).padStart(8, '0'));
+    }
+    return out.join('').slice(0, 64);
+  }
+
+  async function runVoiceIntent(raw) {
+    const text = String(raw || '').trim();
+    if (!text) {
+      toast('Kuch likhein', 'Type a request such as “40 kilo PET Sector 12 kal 6 baje”.', 'warn');
+      return;
+    }
+    if (state.voice.busy) return;
+    state.voice.busy = true;
+    const send = $('#voiceSend');
+    if (send) { send.disabled = true; send.innerHTML = '<span class="spinner light"></span> Samajh rahe hain…'; }
+    try {
+      await wait(320);
+      const data = parseVoiceIntent(text);
+      state.voice.last = data;
+      renderVoiceResult(data);
+      const spoke = await voiceSpeak(data.reply);
+      if (!spoke) {
+        voiceSetStatus('fallback', 'Transcript only');
+        const note = $('#voiceConfigNote');
+        if (note) note.textContent = 'No audio output available. The caption above is the full reply.';
+      }
+      /* "Haan" is an instruction, not just a sentence. Execute it only when a
+         pending pickup exists and the parser crosses the same 70% gate. */
+      if (data.intent === 'confirm_pickup' && data.confidence >= 0.7 && state.voice.pending) {
+        await wait(600);
+        await voiceConfirmHandoff();
+      }
+    } finally {
+      state.voice.busy = false;
+      voiceRestoreStatus();
+      if (send) { send.disabled = false; send.innerHTML = `${icon('spark')} Samjho`; }
+    }
+  }
+
+  function voiceCreateListing() {
+    const data = state.voice.last;
+    if (!data || data.intent !== 'create_listing') return;
+    if ((data.confidence || 0) < 0.7) {
+      toast('Below the gate', 'Confidence is under 70%, so nothing is created. Repeat the material and weight.', 'warn');
+      return;
+    }
+    if (state.voice.pending) {
+      toast('Pickup already open', `${state.voice.pending.listingId} is waiting for the handoff confirmation.`, 'warn');
+      return;
+    }
+    const s = data.slots;
+    const sample = SAMPLES[s.sample];
+    state.voice.created += 1;
+    const id = nextListingId();
+    const hazard = Boolean(s.hazard);
+
+    if (hazard) {
+      state.voice.pending = {
+        listingId: id, kind: 'hazard', material: s.material, qty: s.qty_kg,
+        locality: s.locality, when: s.when, band: s.band
+      };
+      ACTIVITY.unshift({ icon: '☣️', text: `Voice request <b>${id}</b> · ${s.material} routed to a certified handler`, time: 'Just now' });
+      renderActivity();
+      renderVoiceResult(data, { created: { label: `${id} · certified pickup requested. No points, no marketplace listing.` } });
+      toast('Certified pickup requested', `${s.material} · ${s.qty_kg} kg. A CPCB-registered handler handles this stream.`, 'warn');
+      voiceSpeak(`Certified pickup ${id} requested for ${s.qty_kg} kilos of ${s.material}. No marketplace listing.`, 'en');
+      return;
+    }
+
+    const meta = MAT_META[s.material] || { category: sample?.category || 'Plastic', emoji: sample?.emoji || '♻️', thumb: sample?.thumb || 'plastic' };
+    const price = Number(s.price_per_kg || 0);
+    const listing = {
+      id,
+      material: s.material,
+      category: meta.category,
+      emoji: meta.emoji,
+      thumb: meta.thumb,
+      qty: Number(s.qty_kg),
+      price,
+      locality: s.locality,
+      distance: 0.4,
+      seller: 'Green Park Society',
+      verified: true,
+      score: sample?.mrs || 88,
+      posted: 'Just now',
+      fresh: Date.now(),
+      status: 'Listed',
+      co2: Math.round(Number(s.qty_kg) * (sample?.co2 || 0)),
+      note: `Created by Awaaz · ${textSafe(data.reply)}`
+    };
+    state.listings.unshift(listing);
+    const earned = sample?.points || 20;
+    state.points += earned;
+    ROLE_DATA.household.carbon = +(ROLE_DATA.household.carbon + (sample?.co2 || 0)).toFixed(1);
+    state.carbon = ROLE_DATA.household.carbon;
+    ACTIVITY.unshift({ icon: '🎙️', text: `Voice request → <b>${id}</b> · ${s.material} ${s.qty_kg} kg`, time: 'Just now' });
+
+    state.voice.pending = {
+      listingId: id, kind: 'handoff', material: s.material, qty: s.qty_kg,
+      locality: s.locality, when: s.when, band: s.band, points: earned
+    };
+
+    updateHomeStats();
+    renderActivity();
+    renderMarket();
+    renderImpact(state.role);
+    markOnboard(1);
+    if (state.onboard[0]) markOnboard(0);
+
+    renderVoiceResult(data, { created: { label: `${id} created · ${s.qty_kg} kg · 3 verified buyer matches · +${earned} points.` } });
+    toast('Pickup created', `${id} · ${s.material} · ${s.qty_kg} kg. Confirm the handoff to co-sign the ledger.`);
+    voiceSpeak(`${id} created. ${s.qty_kg} kilos of ${s.material}, ${s.locality}. Three verified buyer matches. Say haan to confirm the handoff.`, state.voice.lang);
+  }
+
+  function textSafe(str) {
+    return String(str || '').replace(/\s+/g, ' ').slice(0, 180);
+  }
+
+  async function voiceConfirmHandoff() {
+    const p = state.voice.pending;
+    if (!p) {
+      toast('Nothing to confirm', 'Create a pickup first, then say “haan”.', 'warn');
+      return;
+    }
+    const label = p.kind === 'hazard' ? 'Certified pickup' : 'Handoff';
+    const stamp = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const receiptText = `${label} ${p.listingId} · ${p.material} · ${p.qty} kg · ${p.locality} · ${voiceWhenLabel(p.when)} · co-signed by Ananya R. and Rafiq K. · ${stamp}`;
+    const hash = await sha256Hex(receiptText);
+    const compact = `0x${hash.slice(0, 4)}…${hash.slice(-4)}`;
+
+    LEDGER.unshift({
+      title: p.kind === 'hazard' ? 'Certified pickup co-signed' : 'Voice handoff co-signed',
+      meta: `Ananya R. + Rafiq K. · ${p.qty} kg ${p.material} · ${stamp}`,
+      hash: compact,
+      sigs: ['Ananya R.', 'Rafiq K.'],
+      done: true,
+      pendingAnchor: true,
+      receipt: receiptText
+    });
+    MERKLE.rows += 1;
+    MERKLE.pending = (MERKLE.pending || 0) + 1;
+
+    if (p.kind !== 'hazard') {
+      const today = new Date().toISOString().slice(0, 10);
+      const streak = state.voice.streak;
+      if (streak.lastDay !== today) {
+        streak.lastDay = today;
+        streak.handoffs = Math.min(4, streak.handoffs + 1);
+        const monthJustCompleted = streak.handoffs >= 4 && streak.months < 3;
+        if (monthJustCompleted) streak.months += 1;
+        renderStreak();
+        if (monthJustCompleted) {
+          toast('Monthly streak met', `4 verified handoffs. Month ${streak.months} pilot reward unlocked — paid from the capped pool.`);
+        } else {
+          toast('Verified handoff counted', `${streak.handoffs}/4 this month. One handoff per day counts.`);
+        }
+      }
+    }
+
+    state.voice.pending = null;
+    renderLedger();
+
+    const data = state.voice.last || { intent: 'confirm_pickup', confidence: 0.88, slots: {}, tools: ['confirm_pickup', 'append_ledger'], reply: voiceReply('confirm_pickup', { pending_task: true }) };
+    const lang = state.voice.lang;
+    const reply = p.kind === 'hazard'
+      ? (lang === 'en'
+        ? 'Certified pickup confirmed. The receipt is in the ledger; no points are awarded for hazardous waste.'
+        : lang === 'hi'
+          ? 'प्रमाणित पिकअप की पुष्टि हो गई। रसीद लेजर में है; खतरनाक कचरे पर कोई पॉइंट नहीं मिलता।'
+          : 'Certified pickup confirm ho gaya. Receipt ledger mein hai; hazardous waste par koi points nahi.')
+      : (lang === 'en'
+        ? 'Haan. Handoff confirmed by both sides and the spoken receipt is in the ledger.'
+        : lang === 'hi'
+          ? 'हाँ। दोनों पक्षों ने हस्ताक्षर किए और बोली हुई रसीद लेजर में दर्ज है।'
+          : 'Haan. Dono taraf ne sign kiya aur bola hua receipt ledger mein darj hai.');
+    renderVoiceResult({
+      ...data,
+      intent: 'confirm_pickup',
+      confidence: 0.88,
+      slots: { ...data.slots, listing_id: p.listingId },
+      tools: ['confirm_pickup', 'append_ledger'],
+      reply
+    }, { receipt: { text: receiptText, hash } });
+
+    toast('Ledger row co-signed', `${p.listingId} · ${compact}. Queued for the next daily anchor.`);
+    voiceSpeak(receiptText, 'en');
+  }
+
+  /* ---- coach, bin voices, story --------------------------- */
+  const COACH = {
+    pet: {
+      hi: 'यह पीईटी बोतल है। ढक्कन अलग करें, अंदर से धोएं और सुखाएं। नीली बिन में डालें। भाव ₹22 प्रति किलो।',
+      hinglish: 'Yeh PET bottle hai. Cap alag karein, andar se dho kar sukha lein. Blue bin. ₹22/kg.',
+      en: 'This is a PET bottle. Remove the cap, rinse and dry it, then put it in the blue bin. About ₹22 per kg.'
+    },
+    cardboard: {
+      hi: 'यह कार्डबोर्ड है। चपटा करें और सूखा रखें। गीला कार्डबोर्ड पूरा बंडल “मिक्स” कर देता है। नीली बिन।',
+      hinglish: 'Yeh cardboard hai. Chapta karein aur sookha rakhein. Geela cardboard poora bundle mix kar deta hai. Blue bin.',
+      en: 'This is cardboard. Flatten it and keep it dry. One wet corner downgrades the whole bundle. Blue bin.'
+    },
+    food: {
+      hi: 'यह गीला कचरा है। प्लास्टिक थैली निकालें। हरी बिन में डालें। छह हफ्ते में खाद बनता है।',
+      hinglish: 'Yeh geela kachra hai. Plastic thaili nikaalein. Green bin. Chhah hafte mein compost banta hai.',
+      en: 'This is food waste. Remove the plastic bag and use the green bin. It becomes compost in about six weeks.'
+    },
+    glass: {
+      hi: 'यह कांच की बोतल है। ढक्कन हटाएं और धोएं। टूटा कांच कागज में लपेटें। नीली बिन।',
+      hinglish: 'Yeh kaanch ki bottle hai. Lid hataayein aur dho lein. Toota kaanch kagaz mein lapetein. Blue bin.',
+      en: 'This is glass. Remove the lid, rinse it, and wrap broken pieces in paper before the blue bin.'
+    },
+    ewaste: {
+      hi: 'यह ई-कचरा है। सूखे कचरे में न डालें। डेटा मिटाएं और सीपीसीबी पंजीकृत हैंडलर को दें। कोई पॉइंट नहीं।',
+      hinglish: 'Yeh e-waste hai. Dry bin mein mat daalein. Data wipe karein aur CPCB-registered handler ko dein. No points.',
+      en: 'This is e-waste. Never put it in the dry bin. Wipe your data and hand it to a CPCB-registered handler. No points.'
+    },
+    textile: {
+      hi: 'यह कपड़े का कतरन है। सूखा रखें और रेशे के हिसाब से अलग करें। सफेद बोरी में डालें।',
+      hinglish: 'Yeh kapde ka katran hai. Sookha rakhein aur fibre ke hisaab se alag karein. White sack.',
+      en: 'This is textile offcut. Keep it dry and sort by fibre. It goes in the white sack, not the wet bin.'
+    }
+  };
+
+  const BIN_VOICE = {
+    dry: {
+      hi: 'यह सूखी बिन है। साफ, सूखा प्लास्टिक, कागज और कांच यहाँ। गीला कचरा नहीं।',
+      hinglish: 'Yeh dry bin hai. Saaf, sookha plastic, paper aur glass yahan. Geela kachra nahi.',
+      en: 'This is the dry bin. Clean, dry plastic, paper and glass only. No wet waste.'
+    },
+    wet: {
+      hi: 'यह गीली बिन है। खाने का कचरा यहाँ। प्लास्टिक की थैली नहीं।',
+      hinglish: 'Yeh wet bin hai. Khane ka kachra yahan. Plastic ki thaili nahi.',
+      en: 'This is the wet bin. Food waste only. No plastic bags.'
+    },
+    hazard: {
+      hi: 'खतरा। बैटरी, ई-कचरा और सैनिटरी कचरा यहाँ नहीं। प्रमाणित हैंडलर को दें।',
+      hinglish: 'Khatra. Battery, e-waste aur sanitary kachra yahan nahi. Certified handler ko dein.',
+      en: 'Hazardous waste. Batteries, e-waste and sanitary waste do not go here. Use a certified handler.'
+    }
+  };
+
+  function coachText(key) {
+    const entry = COACH[key];
+    if (!entry) return COACH.pet[state.voice.lang] || COACH.pet.hinglish;
+    return entry[state.voice.lang] || entry.hinglish;
+  }
+
+  function renderCoach() {
+    const pick = $('#coachPick');
+    const line = $('#coachLine');
+    if (!pick || !line) return;
+    line.textContent = coachText(pick.value);
+  }
+
+  function scanGuideText(key) {
+    if (COACH[key]) return coachText(key);
+    const s = SAMPLES[key] || SAMPLES.unknown;
+    if (s.hazard) {
+      if (state.voice.lang === 'hi') return `${s.name} खतरनाक है। सूखे कचरे में न डालें। सीपीसीबी पंजीकृत हैंडलर को दें। कोई पॉइंट नहीं।`;
+      if (state.voice.lang === 'en') return `${s.name} is hazardous. Keep it out of the dry bin and hand it to a CPCB-registered handler. No points.`;
+      return `${s.name} hazardous hai. Dry bin mein mat daalein. CPCB-registered handler ko dein. No points.`;
+    }
+    if (s.warn) {
+      if (state.voice.lang === 'hi') return `${s.name} के लिए दिल्ली में कोई भरोसेमंद रीसाइक्लिंग स्ट्रीम नहीं है। सूखी बिन में न डालें।`;
+      if (state.voice.lang === 'en') return `${s.name} has no viable Delhi recycling stream. Keep it out of the dry bin.`;
+      return `${s.name} ke liye Delhi mein koi viable stream nahi hai. Dry bin mein mat daalein.`;
+    }
+    if (s.unknown) {
+      if (state.voice.lang === 'hi') return 'यह वस्तु पहचान में नहीं आई। कुछ भी अपने आप रूट नहीं होगा। सामग्री खुद चुनें।';
+      if (state.voice.lang === 'en') return 'This item is outside the known classes. Nothing is routed automatically. Pick the material manually.';
+      return 'Yeh item pehchan mein nahi aaya. Kuch bhi auto-route nahi hoga. Material khud chunein.';
+    }
+    return state.voice.lang === 'en' ? `${s.name}. ${s.bin}. ${s.tip}` : `${s.name}. ${s.bin}.`;
+  }
+
+  async function playScanGuide() {
+    const key = state.scanKey || state.lastResult;
+    if (!key) return;
+    const line = scanGuideText(key);
+    toast('Awaaz', line);
+    await voiceSpeak(line, state.voice.lang);
+  }
+
+  function storyText() {
+    const d = ROLE_DATA[state.role];
+    const carbon = state.role === 'household' ? fmt(d.carbon, 1) : fmt(d.carbon);
+    if (state.voice.lang === 'en') {
+      return `This quarter, ${d.note.split('·')[0].trim()} diverted ${fmt(d.diverted)} kilos, avoided ${carbon} kilos of CO2 equivalent, and completed ${fmt(d.pickups)} verified pickups. Every row is co-signed by both sides.`;
+    }
+    if (state.voice.lang === 'hi') {
+      return `इस तिमाही ${fmt(d.diverted)} किलो कचरा डायवर्ट हुआ, ${carbon} किलो CO2e बचा, और ${fmt(d.pickups)} वेरिफाइड पिकअप पूरे हुए। हर पंक्ति दोनों पक्षों के हस्ताक्षर से जुड़ी है।`;
+    }
+    return `Is quarter ${fmt(d.diverted)} kilo waste divert hua, ${carbon} kilo CO2e bacha, aur ${fmt(d.pickups)} verified pickups poore hue. Har row dono taraf ke signature se judi hai.`;
+  }
+
+  async function playStory() {
+    const line = storyText();
+    const caption = $('#storyCaption');
+    if (caption) { caption.hidden = false; caption.textContent = line; }
+    toast('Awaaz · monthly story', line);
+    await voiceSpeak(line, state.voice.lang, 'high');
+  }
+
+  function renderStreak() {
+    const s = state.voice.streak;
+    const count = $('#streakCount');
+    const label = $('#streakMonthsLabel');
+    if (count) count.textContent = `${Math.min(4, s.handoffs)}/4`;
+    if (label) label.textContent = `${s.months} month${s.months === 1 ? '' : 's'} completed`;
+    $$('#streakMonths span').forEach((el, i) => el.classList.toggle('on', i < s.months));
+  }
+
+  function initVoice() {
+    const api = $('#voiceApi');
+    if (api) api.value = state.voice.base;
+    state.voice.consent = Boolean($('#voiceConsent')?.checked);
+    renderCoach();
+    renderStreak();
+    voiceSetStatus('', 'Checking voice…');
+    checkVoiceHealth(false);
+  }
+
+  /* ---------------------------------------------------------
      Events
      --------------------------------------------------------- */
   function bindEvents() {
@@ -1371,6 +2327,46 @@
       if (e.target.closest('[data-close-modal]')) { closeModal(); return; }
       if (e.target.closest('[data-tour]')) { openModal('modalTour'); return; }
       if (e.target.closest('[data-open-listing]')) { openModal('modalNew'); return; }
+      if (e.target.closest('[data-streak-info]')) { openModal('modalStreak'); return; }
+      if (e.target.closest('[data-story]')) { playStory(); return; }
+      if (e.target.closest('[data-scan-listen]')) { playScanGuide(); return; }
+      if (e.target.closest('[data-voice-create]')) { voiceCreateListing(); return; }
+      if (e.target.closest('[data-voice-confirm]')) { voiceConfirmHandoff(); return; }
+      if (e.target.closest('[data-voice-say]')) {
+        const last = state.voice.last;
+        if (last) voiceSpeak(last.reply, state.voice.lang);
+        return;
+      }
+
+      const voiceSample = e.target.closest('[data-voice-sample]');
+      if (voiceSample) {
+        const input = $('#voiceText');
+        if (input) input.value = voiceSample.dataset.voiceSample;
+        runVoiceIntent(voiceSample.dataset.voiceSample);
+        return;
+      }
+
+      const voiceLang = e.target.closest('[data-voice-lang]');
+      if (voiceLang) {
+        state.voice.lang = voiceLang.dataset.voiceLang;
+        $$('[data-voice-lang]').forEach((b) => b.classList.toggle('active', b === voiceLang));
+        const hint = $('#voiceHint');
+        if (hint) hint.textContent = voiceHintText();
+        renderCoach();
+        if (state.voice.recording) stopVoiceCapture();
+        return;
+      }
+
+      const binVoice = e.target.closest('[data-bin-voice]');
+      if (binVoice) {
+        const key = binVoice.dataset.binVoice;
+        const line = (BIN_VOICE[key] || BIN_VOICE.dry)[state.voice.lang] || (BIN_VOICE[key] || BIN_VOICE.dry).hinglish;
+        const host = $('#binVoiceLine');
+        if (host) host.textContent = line;
+        $$('[data-bin-voice]').forEach((b) => b.classList.toggle('active', b === binVoice));
+        voiceSpeak(line, state.voice.lang);
+        return;
+      }
 
       const saveBtn = e.target.closest('[data-save]');
       if (saveBtn) {
@@ -1434,7 +2430,7 @@
       if (e.target.closest('[data-verify-anchor]')) {
         const btn = e.target.closest('[data-verify-anchor]');
         popIcon(btn.querySelector('.icon'));
-        toast('Anchor verified', `Root ${MERKLE.root} matches public commit ${MERKLE.commit} · ${MERKLE.rows} co-signed handoffs.`);
+        toast('Anchor verified', `Root ${MERKLE.root} matches public commit ${MERKLE.commit} · ${MERKLE.rows} co-signed handoffs${MERKLE.pending ? `, ${MERKLE.pending} queued for tomorrow’s anchor` : ''}.`);
         return;
       }
 
@@ -1569,6 +2565,64 @@
 
     $('#downloadReport').addEventListener('click', downloadReport);
 
+    const micBtn = $('#micBtn');
+    if (micBtn) micBtn.addEventListener('click', voiceToggleMic);
+
+    const voiceSend = $('#voiceSend');
+    if (voiceSend) voiceSend.addEventListener('click', () => runVoiceIntent($('#voiceText')?.value || ''));
+
+    const voiceText = $('#voiceText');
+    if (voiceText) {
+      voiceText.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          runVoiceIntent(voiceText.value);
+        }
+      });
+    }
+
+    const voiceConsent = $('#voiceConsent');
+    if (voiceConsent) {
+      voiceConsent.addEventListener('change', () => {
+        state.voice.consent = voiceConsent.checked;
+        if (voiceConsent.checked) toast('Consent recorded', 'Transcript fields are kept; raw audio is discarded after transcription.');
+      });
+    }
+
+    const voiceApi = $('#voiceApi');
+    if (voiceApi) {
+      voiceApi.addEventListener('change', () => {
+        state.voice.base = voiceNormalizeBase(voiceApi.value);
+        store('lg.voiceApi', state.voice.base);
+        checkVoiceHealth(false);
+      });
+    }
+
+    const voiceTest = $('#voiceTest');
+    if (voiceTest) {
+      voiceTest.addEventListener('click', () => {
+        const input = $('#voiceApi');
+        state.voice.base = voiceNormalizeBase(input ? input.value : '');
+        store('lg.voiceApi', state.voice.base);
+        checkVoiceHealth(true);
+      });
+    }
+
+    const coachPick = $('#coachPick');
+    if (coachPick) coachPick.addEventListener('change', renderCoach);
+
+    const coachPlay = $('#coachPlay');
+    if (coachPlay) {
+      coachPlay.addEventListener('click', async () => {
+        const pick = $('#coachPick');
+        if (!pick) return;
+        const line = coachText(pick.value);
+        const host = $('#coachLine');
+        if (host) host.textContent = line;
+        await voiceSpeak(line, state.voice.lang);
+      });
+    }
+
     $('#newListingForm').addEventListener('submit', (e) => {
       e.preventDefault();
       publishListing(e.currentTarget);
@@ -1606,6 +2660,7 @@
     renderImpact(state.role);
     renderLedger();
     setSample('pet', { silent: true });
+    initVoice();
     initReveals();
 
     // Keep an active page for the app shell

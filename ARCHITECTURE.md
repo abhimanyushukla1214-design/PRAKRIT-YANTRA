@@ -37,12 +37,15 @@ becomes real.
 | Bins | Hard-coded fill %, positions on a stylised map | `BINS` |
 | Route | Fixed permutation + "skip under 40%" filter; distance from a 4-case table | `OPT_ORDER`, `routeStats()` |
 | Impact | Per-role constants, hand-authored chart series | `ROLE_DATA` |
-| Ledger | 5 hard-coded rows, CSV export in the browser | `LEDGER` |
-| Hosting | Static files; Streamlit wrapper for cloud deploy | `streamlit_app.py` |
+| Ledger | 4 hard-coded rows + any voice-created row, CSV export in the browser | `LEDGER` |
+| Voice | Optional FastAPI gateway: ElevenLabs Flash TTS + Scribe STT, deterministic intent parser, mock mode; browser speech/text fallback | `voice_api.py`, `assets/app.js` |
+| Hosting | Static files on GitHub Pages; optional Streamlit wrapper for cloud deploy | `index.html`, `streamlit_app.py` |
 
-There is **no backend, no database and no model** in the current build. Nothing
-is persisted. The UI labels the classifier, sensors and routing as modelled so
-the demo never claims otherwise.
+There is **no database and no trained model** in the current build, and nothing
+is persisted. The one backend is the optional Awaaz gateway; if it is not
+running, voice falls back to the browser and then to typed text. The UI labels
+the classifier, sensors, routing and voice providers so the demo never claims
+otherwise.
 
 ---
 
@@ -57,16 +60,23 @@ the demo never claims otherwise.
 │              ├── classify()   ── 950 ms wait ──► renderScanResult()      │
 │              ├── publish()    ── unshift listing ──► marketplace         │
 │              ├── routeStats() ── lookup table ──► map + summary          │
+│              ├── Awaaz: parser + tools + Web Speech fallback             │
 │              └── exportCsv()  ── Blob + <a download>                     │
 │  camera (optional) ── getUserMedia ──► <video> preview only              │
 └──────────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                 Streamlit wrapper (streamlit_app.py)
-                 copies site → ./static, embeds via st.iframe
+        │ optional: text / 12 s audio                │
+        ▼                                            ▼
+  FastAPI voice gateway (voice_api.py)          Streamlit wrapper
+  ElevenLabs Scribe → intent → Flash TTS        copies site → ./static,
+  no raw audio stored; key stays server-side    embeds via st.iframe
 ```
 
-Everything is client-side, which is why the demo survives a bad venue network.
+Everything in the product demo is client-side, which is why it survives a bad
+venue network. The voice gateway is optional and isolated: losing it only drops
+Awaaz to browser speech, never the scan, marketplace or ledger screens.
+
+The voice layer (§17), account plan (§18), facility sourcing (§19) and pilot
+reward/pilot plan (§20–21) are documented after the main AI track.
 
 ---
 
@@ -538,6 +548,11 @@ km/fuel/CO₂ live.
 | Live price feedback | Hand-authored clean vs contaminated reference prices, not a market feed |
 | Source quality score | Demo data, scoring rule described |
 | Camera preview | Real `getUserMedia`, classification scripted |
+| Awaaz “ElevenLabs ready” | Real only when the FastAPI gateway has a key; otherwise browser speech, mock or typed fallback |
+| Voice-created pickup / spoken receipt | Real browser parsing and SHA-256 of the receipt text; no Ed25519 signature, no external anchor, no audio retention |
+| Streak / ₹20–₹100 reward | Rule and counter only; no money, pool or UPI rail is live |
+| Facility directory | Sources and trust rules only; deliberately no invented company names |
+| Accounts | One seeded demo user; no OTP, session or password storage in this build |
 
 Nothing here claims a trained model, live sensors, signed handoffs, paying
 buyers or real money movement.
@@ -548,13 +563,13 @@ buyers or real money movement.
 
 | When | Work |
 |---|---|
-| **Week 1** | Calibrated classifier (temperature + ECE), conformal gate at 90%, unknown/OOD path, expanded Indian class list with hazardous override, multi-label contamination |
-| **Week 2** | Co-signed ledger (Ed25519) + daily Merkle anchor, source-level quality score |
-| **Week 3–4** | FastAPI + Postgres, real listings, QR pickup, fraud checks |
-| **Month 2** | OR-Tools on real coordinates, sensor simulator, hard-set evaluation on a ₹8,000 phone |
-| **Month 3** | 3-society pilot, 20 bins, 2 kabadiwala partners |
+| **Week 1** | Calibrated classifier (temperature + ECE), conformal gate at 90%, unknown/OOD path, expanded Indian class list with hazardous override, multi-label contamination; Awaaz plain STT/TTS APIs |
+| **Week 2** | Co-signed ledger (Ed25519) + daily Merkle anchor, source-level quality score; phone-OTP auth + roles |
+| **Week 3–4** | FastAPI + Postgres, real listings, QR pickup, fraud checks; facility import from CPCB/SPCB + municipal MRFs |
+| **Month 2** | OR-Tools on real coordinates, sensor simulator, ElevenLabs Agents tools with signed sessions, hard-set evaluation on a ₹8,000 phone |
+| **Month 3** | **One-campus pilot, 6–8 weeks** (or a 4-week variant with only the ₹20 reward), 10–20 bins, 2 kabadiwala partners |
 | After 500 transactions | Matching re-ranker and price model — only then |
-| Later | Micro-lot pooling, digital twin |
+| Later | Micro-lot pooling, digital twin, telephony/WhatsApp voice |
 
 ---
 
@@ -594,3 +609,286 @@ models we can evaluate beats six we cannot.
 Buyer liquidity per locality, sensor battery life, and label drift as packaging
 changes. Mitigations: seeded buyer pools per pincode, 6-month battery budget at
 15-minute pings, quarterly relabelling from reviewed overrides.
+
+---
+
+## 17. Awaaz — the voice layer
+
+Awaaz is a **layer**, not a second brain. Speech becomes text, text becomes a
+structured tool call, and LoopGrid's existing rules decide what is allowed to
+happen. The voice model can describe a decision; it cannot make one.
+
+```
+┌─ phone ──────────────────────────────┐      ┌─ FastAPI gateway ──────────────┐
+│ push-to-talk (12 s cap)              │      │ POST /api/voice/stt            │
+│  └ MediaRecorder ── audio ───────────┼─────►│  └ ElevenLabs Scribe           │
+│                                      │      │      → transcript, audio gone  │
+│ typed text (always available) ───────┼─────►│ POST /api/voice/intent         │
+│                                      │      │  └ deterministic slots/tools   │
+│ caption + result card ◄──────────────┼──────┤      → reply text              │
+│  └ <audio> ◄── cached mp3 ───────────┼──────┤ POST /api/voice/tts (Flash)    │
+│  └ SpeechSynthesis fallback          │      │  └ key stays server-side       │
+│  └ text-only fallback                │      └────────────────────────────────┘
+└──────────────────────────────────────┘
+```
+
+### 17.1 Integration levels
+
+1. **Plain APIs (built).** Scribe for STT, Flash v2.5 for TTS, typed fallback.
+   The gateway exposes `/stt`, `/tts`, `/intent`, `/health`.
+2. **ElevenLabs Agents (next).** The agent gets only these tools:
+   `create_listing`, `get_matches`, `get_status`, `confirm_pickup`,
+   `explain_item`. Sessions are short-lived and signed by our backend; the agent
+   never receives a database credential. The tool result is rendered as a card,
+   so the user can see what was actually executed.
+3. **Telephony / WhatsApp voice (later).** The same gateway sits behind a
+   number; the receipt can be sent as text after the call. This is the route for
+   feature-phone users, and it is why the parser is deterministic rather than
+   prompt-only.
+
+### 17.2 Why the parser is rule-based
+
+The safety path cannot depend on an LLM improvising. `voice_api.py` extracts
+material, quantity, locality and time with explicit aliases, number words and
+regexes, and returns the same `{intent, confidence, slots, tools, reply}` shape
+as the browser parser. Examples:
+
+| Utterance | Intent | Result |
+|---|---|---|
+| “Kal subah 6 baje Sector 12 se 40 kilo PET” | `create_listing` | 40 kg PET, Sector 12, tomorrow 06:00, ₹19–25/kg |
+| “Mera pickup LG-1043 kahan hai?” | `get_status` | reads the co-signed timeline |
+| “Haan” (with a pending pickup) | `confirm_pickup` | co-signs the handoff |
+| “E-waste kaise sort karein?” | `explain_item` | hazardous route, no listing |
+| “Haan” (nothing pending) | `clarify` at 0.40 | asks for material + weight |
+
+Word-boundary matching matters: “Hauz Khas” must not be read as “haan”. The
+confirm vocabulary is token-matched, not substring-matched.
+
+### 17.3 Gates that stay in our code
+
+- **Confidence gate.** Below 0.70 the UI shows the transcript, the low-confidence
+  warning and **no create/confirm button**. The API returns `clarify`, not a
+  guess.
+- **Hazardous override.** E-waste, batteries and sanitary waste never become a
+  marketplace listing and never earn points. The voice layer can say “certified
+  handler”; only the rule engine can route it.
+- **Consent.** The mic is disabled until the DPDP checkbox is ticked. Typed text
+  is labelled as the no-audio path.
+- **No raw audio storage.** The gateway reads the upload, forwards it to Scribe,
+  and returns the transcript. It does not write the audio to disk.
+- **Spoken receipt.** On confirmation we hash the **receipt text** with SHA-256,
+  show the hash, and add the row to the ledger as *queued for the next daily
+  anchor*. The audio is not hashed, because the audio is not the record. The
+  root is not rewritten retroactively.
+
+### 17.4 Fallback chain
+
+```
+ElevenLabs gateway ──► browser SpeechRecognition / SpeechSynthesis ──► typed text
+        │                         │                                      │
+   status chip:             status chip:                          reply caption
+   "ElevenLabs ready"       "Browser voice"                       always present
+```
+
+The chip is not decoration: it states which provider is actually answering.
+`VOICE_MOCK=1` is a separate state (“Mock voice API”) and returns a tone plus a
+canned transcript, so the contract can be tested without spending credits.
+`GET /api/voice/health` drives the probe; a missing key, an offline gateway and
+a mock server are three different labels.
+
+### 17.5 Cost, latency and caching
+
+| Control | Implementation |
+|---|---|
+| Repeated prompts | cache key = hash(text + voice + model + language); identical smart-bin warnings are paid once |
+| Short replies | `eleven_flash_v2_5` |
+| Narration | `eleven_multilingual_v2` only for the monthly story |
+| Session length | push-to-talk, 12 s cap, no always-on listening |
+| Daily spend | `VOICE_DAILY_CHAR_CAP` → `429` with a browser-fallback message |
+| Abuse | per-IP rate limit (20/min TTS, 12/min STT, 40/min intent) |
+| Privacy | audio not persisted; cache holds synthesized output only |
+
+For the pilot, move the in-process counters to Redis and add a per-account
+budget. Latency should be reported p50/p95 on a ₹8,000 phone, including the
+network round-trip, not just the model call.
+
+### 17.6 Accessibility
+
+- First-screen language choice: हिन्दी / Hinglish / English.
+- Every spoken line has an on-screen caption: the result reply, coach line, bin
+  voice and monthly story all write their text before speaking.
+- Large mic target, visible pressed state, no colour-only status.
+- Push-to-talk instead of wake-word, so the app does not listen continuously.
+- Test with noisy markets and accented Hindi; report WER and task completion,
+  not just “it worked in a quiet room”.
+
+### 17.7 Demo vs production
+
+| Claim | Status |
+|---|---|
+| “ElevenLabs ready” | Real only if the gateway has a key; otherwise labelled browser/mock |
+| STT / TTS | Real API path exists; no key was available for this build, so only mock/browser paths were exercised |
+| Intent parsing | Deterministic rules; not a trained NLU model |
+| Spoken receipt hash | Real SHA-256 of the text in the browser; not signed, not externally anchored |
+| “Transcript only” | True of the gateway code: it does not write audio; production must enforce retention server-side |
+| Telephony / WhatsApp | Not built |
+
+Voice metrics for the pilot: WER on a noisy/accented Hindi test set, intent
+accuracy, slot F1 for material/weight, task completion without typing, p95
+latency, and cost per completed pickup.
+
+---
+
+## 18. Accounts and authentication
+
+The demo runs as one seeded user (**Ananya R.**). No OTP is sent and no session
+is created. Production auth is specified here so the demo does not pretend to
+have it.
+
+### 18.1 Methods
+
+- **Phone + OTP primary.** Many users do not use email; the phone is also the
+  collector's identity.
+- **Google sign-in optional.**
+- **Logout** clears the refresh token and local session on the device.
+- **Forgot password via OTP.** If phone OTP is the only factor, no password is
+  needed. If a password is added: phone → OTP → verify → set new password →
+  revoke all old sessions.
+
+### 18.2 Fields
+
+| Required | Optional |
+|---|---|
+| Name | Email |
+| Phone | Language (Hindi/English) |
+| Role: household / society admin / collector / buyer | Profile photo |
+| Address: flat/house, locality, city, pincode | Map pin (with permission) |
+| DPDP consent checkbox | |
+
+Role controls what the app shows: a household never sees buyer pricing logic, a
+collector sees routes and weight entry, a buyer sees lots and source scores.
+
+### 18.3 OTP and session rules
+
+- 6 digits, expires in 5 minutes.
+- 3–5 attempts, then a cooldown.
+- Resend cooldown 30–60 s.
+- Rate-limit by phone **and** by IP.
+- Store passwords only as bcrypt/argon2 hashes; never plain text.
+- Short-lived access token (minutes) + rotating refresh token; revoke on logout.
+- SMS in India needs **DLT registration**. Firebase Authentication or Supabase
+  Auth can provide phone OTP + Google sign-in without building the SMS path;
+  either is acceptable for the pilot.
+- Consent receipts (version, timestamp, purpose) are stored; account deletion
+  removes personal data and keeps only non-personal ledger hashes.
+
+### 18.4 Why the demo does not fake it
+
+A fake OTP box that accepts any code teaches judges the wrong thing and creates a
+security anti-pattern. The demo therefore says “single seeded account” and keeps
+the auth work in this section plus the roadmap.
+
+---
+
+## 19. Facility directory — never invent a company
+
+The AI may extract, normalise and rank facility records. It may **not** create a
+facility. Every record carries a source and a `last_verified` date.
+
+### 19.1 Sources, in trust order
+
+1. **Official lists:** CPCB / State Pollution Control Board authorised recyclers
+   and EPR portal registrations.
+2. **Municipal records:** local-body MRF, dry-waste collection centre and
+   processing-plant lists (e.g. DPCC/MCD in Delhi).
+3. **Map data:** Google Places or OpenStreetMap for scrap dealers near the user.
+
+### 19.2 Where AI helps
+
+- Extract names, addresses, contact details and accepted waste types from PDFs
+  and tables.
+- Normalise duplicates (“M/s …”, abbreviations, transliterations).
+- Map a user's material to facility categories: plastic, paper, e-waste, wet,
+  hazardous.
+- Rank by distance, accepted material, capacity and verification status.
+
+### 19.3 Trust labels
+
+| Label | Rule |
+|---|---|
+| **Verified** | Appears in an official CPCB/SPCB/municipal list; show source + last verified date |
+| **Unverified — call before going** | Map-only result; never presented as a partner |
+| **Reported closed / wrong** | User report; hidden pending re-check |
+| **Not connected** | Demo state: the directory card names sources, not companies |
+
+The demo intentionally shows **zero facility names**. It shows the sources and
+the rule, because inventing “Okhla Green Recyclers Pvt Ltd” would be the one
+thing the brief explicitly forbids.
+
+---
+
+## 20. Pilot reward: verified-handoff streak
+
+This is a **pilot reward**, not guaranteed income. It counts verified handoffs,
+not app opens.
+
+| Month | Condition | Payout for that month |
+|---|---|---|
+| 1 | ≥ 4 verified handoffs + quality pass | ₹20 |
+| 2 consecutive | Same condition | ₹60 |
+| 3 consecutive | Same condition | ₹100 |
+
+The amounts are **each month's payout**, not a bonus stacked on the previous
+one. Three months cost **₹180 per user**, which must be checked against the
+pilot budget before it is promised.
+
+### 20.1 Anti-fraud
+
+- Only **one verified handoff per day** counts.
+- The **receiver must confirm** weight and material; a generator-only tap does
+  not count.
+- Flag same generator–collector pairs spiking, impossible weights, reused photos
+  (pHash), GPS/time mismatches and collusion patterns.
+- Flagged rows do not count toward the streak and go to review.
+- Settlement uses the collector-confirmed weight, not the photo estimate.
+
+### 20.2 Grace and payout
+
+- **One grace week:** a single missed week does not wipe progress; a longer gap
+  resets the streak.
+- Start with **points or vouchers**. Real-money UPI later goes through a licensed
+  payment partner, not a wallet we operate (RBI rules).
+- Set a **monthly reward pool**; if it runs out, pay proportionally.
+- Wording in the UI and deck: *pilot reward, capped pool, not guaranteed income.*
+
+The demo shows the rule and a counter. No money moves, no pool is live and no
+UPI transfer is initiated.
+
+---
+
+## 21. Pilot plan and the 30-second demo
+
+### 21.1 Pilot
+
+- **6–8 weeks, one campus** (a college or a large society), not all of Delhi.
+- Why that length: a monthly reward needs at least a month of activity, and the
+  two-month streak needs two; voice accuracy, contamination and fraud attempts
+  need repeated handoffs. A few days gives too little data.
+- **4-week variant:** drop the 2- and 3-month streaks and test only the ₹20
+  month. Less data, lower cost.
+- Metrics: handoffs/week, contamination rate by source, voice task completion
+  and WER, p95 latency on a ₹8,000 phone, fraud flags per 100 handoffs, reward
+  cost per retained user, kg diverted and CO₂e range with factor version.
+- The pilot is where the scripted classifier, sensors and signatures get
+  replaced; the demo does not wait for that to be presentable.
+
+### 21.2 Demo (competition, ~30 seconds for the core loop)
+
+1. Collector says **“40 kilo PET, haan”**.
+2. The manager taps **confirm**.
+3. The ledger row appears with both signatures.
+4. The receipt is spoken and its **text hash** is shown.
+5. The streak counter moves from 3/4 to 4/4, with the rule visible.
+
+No pilot is required for this demo. The 6–8 weeks is the real-world test, not
+the length of the handoff.

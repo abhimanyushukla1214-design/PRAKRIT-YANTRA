@@ -55,6 +55,10 @@
   <symbol id="i-recycle" viewBox="0 0 24 24"><path d="M7 7h9l-2-2M17 17H8l2 2"/><path d="M4.5 12a7.5 7.5 0 0 1 12-5.7M19.5 12a7.5 7.5 0 0 1-12 5.7"/></symbol>
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></symbol>
   <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 3.5-3 5-3 9a3.5 3.5 0 0 0 7 0c0-1.6-.7-2.6-1.5-3.4C14 11 13 12 12 12c1.5-3 1.5-6 0-9Z"/><path d="M12 21a6 6 0 0 0 6-6"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9.5h3.5L13 5v14l-5.5-4.5H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6 3.5h3l1.5 4-2 1.5a12 12 0 0 0 5 5l1.5-2 4 1.5v3A2 2 0 0 1 17 18 15 15 0 0 1 4 5a2 2 0 0 1 2-1.5Z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.3 3.8 8.5S14.5 18.6 12 20.5c-2.5-1.9-3.8-5.3-3.8-8.5S9.5 5.9 12 3.5Z"/></symbol>
 </svg>
 
 <!-- ============ LANDING ============ -->
@@ -307,6 +311,7 @@
       <button class="side-link" data-nav="market"><svg class="icon"><use href="#i-market"/></svg><span>Marketplace</span><em class="side-badge" id="sideMarketCount">8</em></button>
       <button class="side-link" data-nav="routes"><svg class="icon"><use href="#i-map"/></svg><span>Routes &amp; bins</span></button>
       <button class="side-link" data-nav="impact"><svg class="icon"><use href="#i-chart"/></svg><span>Impact</span></button>
+      <button class="side-link" data-nav="awaaz"><svg class="icon"><use href="#i-mic"/></svg><span>Awaaz</span><em class="side-badge voice">VOICE</em></button>
     </nav>
 
     <div class="side-impact">
@@ -338,6 +343,7 @@
           <button class="role-btn" data-role="society">Society</button>
           <button class="role-btn" data-role="business">Business</button>
         </div>
+        <button class="icon-btn voice-btn" data-nav="awaaz" aria-label="Awaaz voice mode"><svg class="icon"><use href="#i-mic"/></svg></button>
         <button class="icon-btn has-dot" data-notify aria-label="Notifications"><svg class="icon"><use href="#i-bell"/></svg><span class="notif-dot"></span></button>
         <button class="avatar-btn" data-nav="home" aria-label="Profile">A</button>
       </div>
@@ -392,6 +398,18 @@
               <span class="streak"><svg class="icon"><use href="#i-flame"/></svg> 6-day streak</span>
               <button class="btn btn-soft btn-sm" data-redeem>Redeem</button>
             </div>
+            <div class="streak-strip">
+              <div class="streak-strip-head">
+                <span><svg class="icon"><use href="#i-shield"/></svg> Verified-handoff streak</span>
+                <b id="streakMonthsLabel">2 months</b>
+              </div>
+              <div class="streak-months" id="streakMonths">
+                <span class="on"><i>1</i>₹20</span>
+                <span class="on"><i>2</i>₹60</span>
+                <span><i>3</i>₹100</span>
+              </div>
+              <p class="streak-strip-note"><b id="streakCount">3/4</b> handoffs this month · one grace week · <button class="link-btn" data-streak-info>pilot rules</button></p>
+            </div>
           </section>
 
           <div class="quick-row">
@@ -408,6 +426,11 @@
             <button class="quick-tile" data-nav="routes">
               <span class="quick-icon navy"><svg class="icon"><use href="#i-truck"/></svg></span>
               <span class="quick-copy"><b>Track pickup</b><small>2 collectors nearby</small></span>
+              <svg class="icon quick-arrow"><use href="#i-arrow"/></svg>
+            </button>
+            <button class="quick-tile" data-nav="awaaz">
+              <span class="quick-icon amber"><svg class="icon"><use href="#i-mic"/></svg></span>
+              <span class="quick-copy"><b>Awaaz</b><small>Bolkar list karein</small></span>
               <svg class="icon quick-arrow"><use href="#i-arrow"/></svg>
             </button>
           </div>
@@ -727,6 +750,17 @@
                 <li><span class="predict-dot amber"></span><div><b>Okhla Phase 2</b><small>Predicted full by 21:10 · 79% now</small></div><em>Monitor</em></li>
               </ul>
             </section>
+
+            <section class="card facility-card">
+              <div class="card-head"><div><h2>Where it goes</h2><p>Facility directory</p></div><span class="chip warn">Not connected</span></div>
+              <p class="facility-note">No facility is invented in this demo. Production records come only from official lists and map data, each with a source and a last-verified date.</p>
+              <ul class="facility-sources">
+                <li><b>CPCB / SPCB</b><span>Authorised recyclers, EPR registrations</span><a href="https://cpcb.nic.in" target="_blank" rel="noopener">cpcb.nic.in</a></li>
+                <li><b>Municipal MRFs</b><span>Dry-waste centres and processing plants</span><em>DPCC / MCD lists</em></li>
+                <li><b>OpenStreetMap</b><span>Scrap dealers — always “unverified, call first”</span><a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OSM</a></li>
+              </ul>
+              <p class="fine">Verified only if it appears in an official list. Map-only results stay labelled unverified.</p>
+            </section>
           </aside>
         </div>
       </section>
@@ -740,10 +774,13 @@
             <p class="sub">Every kilogram is tied to a QR event, a weight and a buyer acceptance.</p>
           </div>
           <div class="page-actions">
+            <button class="btn btn-ghost" data-story><svg class="icon"><use href="#i-volume"/></svg> Sunnein · monthly story</button>
             <button class="btn btn-outline" id="downloadReport"><svg class="icon"><use href="#i-download"/></svg> Export ESG report</button>
             <button class="btn btn-primary" data-nav="market"><svg class="icon"><use href="#i-market"/></svg> List material</button>
           </div>
         </div>
+
+        <p class="coach-line impact-story-caption" id="storyCaption" hidden></p>
 
         <div class="impact-role card">
           <div>
@@ -802,6 +839,119 @@
             <div class="merkle-anchor" id="merkleAnchor"></div>
             <p class="ledger-note">Ed25519 signatures from both parties. A daily Merkle root is committed to a public repo, so neither side — nor LoopGrid — can rewrite a row alone.</p>
             <p class="ledger-note muted">Demo: rows, signatures and the anchor are illustrative. No keys are generated in this build.</p>
+          </section>
+        </div>
+      </section>
+
+      <!-- AWAAZ -->
+      <section class="page" data-page="awaaz">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow"><span class="live-dot"></span> Awaaz · voice layer</p>
+            <h1>Bolkar sort karein.</h1>
+            <p class="sub">Hindi, Hinglish or English. The transcript becomes a pickup task; the audio is not stored.</p>
+          </div>
+          <div class="page-actions">
+            <div class="lang-switch" role="group" aria-label="Voice language">
+              <button class="lang-btn active" data-voice-lang="hi">हिन्दी</button>
+              <button class="lang-btn" data-voice-lang="hinglish">Hinglish</button>
+              <button class="lang-btn" data-voice-lang="en">English</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="awaaz-grid">
+          <section class="card voice-card">
+            <div class="card-head">
+              <div><h2>Boliye</h2><p>Push to talk · no always-on listening</p></div>
+              <span class="voice-status" id="voiceStatus"><i class="dot"></i><span>Checking voice…</span></span>
+            </div>
+
+            <div class="voice-stage">
+              <button class="mic-btn" id="micBtn" aria-pressed="false" aria-label="Start speaking">
+                <span class="mic-rings" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="mic-core"><svg class="icon"><use href="#i-mic"/></svg></span>
+              </button>
+              <div class="voice-wave" id="voiceWave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+              <p class="mic-label" id="micLabel">Tap to speak</p>
+              <p class="voice-hint" id="voiceHint">Hindi, Hinglish ya English. Audio server par store nahi hota.</p>
+            </div>
+
+            <label class="consent-row" for="voiceConsent">
+              <input type="checkbox" id="voiceConsent">
+              <span>I consent to my voice being processed for this request. Only the transcript is kept, never the audio. <b>DPDP</b></span>
+            </label>
+
+            <div class="voice-type">
+              <label for="voiceText">Ya phir type karein</label>
+              <textarea id="voiceText" rows="2" placeholder="Kal subah 6 baje Sector 12 se 40 kilo PET"></textarea>
+              <div class="voice-samples">
+                <button class="sample-pill" data-voice-sample="Kal subah 6 baje Sector 12 se 40 kilo PET">40 kg PET · kal 6 baje</button>
+                <button class="sample-pill" data-voice-sample="Aaj Green Park se 20 kilo cardboard uthana hai">20 kg cardboard · aaj</button>
+                <button class="sample-pill" data-voice-sample="Mera pickup LG-1043 kahan hai?">Pickup status</button>
+              </div>
+              <button class="btn btn-primary full" id="voiceSend"><svg class="icon"><use href="#i-spark"/></svg> Samjho</button>
+            </div>
+
+            <details class="voice-config">
+              <summary>Voice API settings</summary>
+              <p>The ElevenLabs key stays on the FastAPI server, never in this page. Leave blank to use browser speech.</p>
+              <div class="voice-config-row">
+                <input id="voiceApi" type="url" placeholder="http://localhost:8000" autocomplete="off" spellcheck="false">
+                <button class="btn btn-outline btn-sm" id="voiceTest">Test</button>
+              </div>
+              <p class="voice-config-note" id="voiceConfigNote">Fallback chain: ElevenLabs → browser speech → text.</p>
+            </details>
+          </section>
+
+          <section class="card voice-result" id="voiceResult">
+            <div class="voice-empty" id="voiceEmpty">
+              <span class="result-empty-icon"><svg class="icon"><use href="#i-mic"/></svg></span>
+              <h2>Kuch boliye</h2>
+              <p>Say something like <b>“Kal subah 6 baje Sector 12 se 40 kilo PET”</b>. Awaaz turns it into a structured pickup, then reads the receipt back.</p>
+              <ul class="voice-examples">
+                <li><svg class="icon"><use href="#i-arrow"/></svg> Material + weight + locality + time</li>
+                <li><svg class="icon"><use href="#i-arrow"/></svg> “Pickup LG-1043 kahan hai?”</li>
+                <li><svg class="icon"><use href="#i-arrow"/></svg> “Haan” to co-sign the handoff</li>
+              </ul>
+              <p class="fine">Low confidence never guesses. It asks you to repeat, exactly like the image gate.</p>
+            </div>
+            <div id="voiceResultBody" hidden></div>
+          </section>
+        </div>
+
+        <div class="awaaz-bottom">
+          <section class="card coach-card">
+            <div class="card-head">
+              <div><h2>Segregation coach</h2><p>Spoken explanation, text caption always</p></div>
+              <span class="chip">Caption on</span>
+            </div>
+            <div class="coach-row">
+              <select class="native-select" id="coachPick" aria-label="Material to explain">
+                <option value="pet">PET bottle</option>
+                <option value="cardboard">Cardboard</option>
+                <option value="food">Food scraps</option>
+                <option value="glass">Glass jar</option>
+                <option value="ewaste">E-waste</option>
+                <option value="textile">Textile offcut</option>
+              </select>
+              <button class="btn btn-soft" id="coachPlay"><svg class="icon"><use href="#i-volume"/></svg> Sunnein</button>
+            </div>
+            <p class="coach-line" id="coachLine">Yeh PET bottle hai. Cap alag karein. Blue bin. ₹22/kg.</p>
+          </section>
+
+          <section class="card bin-voice-card">
+            <div class="card-head">
+              <div><h2>Smart bin voices</h2><p>Fixed local-language warnings, cached once</p></div>
+              <span class="chip">Cached</span>
+            </div>
+            <div class="bin-voice-row">
+              <button class="bin-voice" data-bin-voice="dry"><i class="dot green"></i>Dry</button>
+              <button class="bin-voice" data-bin-voice="wet"><i class="dot amber"></i>Wet</button>
+              <button class="bin-voice" data-bin-voice="hazard"><i class="dot red"></i>Hazardous</button>
+            </div>
+            <p class="coach-line" id="binVoiceLine">Yeh dry bin hai. Geela kachra yahan nahi.</p>
+            <p class="fine">Same text + voice + language = one cached file. Fixed prompts are paid once.</p>
           </section>
         </div>
       </section>
@@ -882,6 +1032,28 @@
       <div class="modal-actions">
         <button class="btn btn-ghost" data-close-modal>Close</button>
         <button class="btn btn-primary" data-enter-app>Open the demo <svg class="icon"><use href="#i-arrow"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modalStreak" role="dialog" aria-modal="true" aria-labelledby="streakTitle" hidden>
+    <div class="modal-head">
+      <div><span class="modal-kicker">Pilot reward</span><h2 id="streakTitle">Verified-handoff streak</h2></div>
+      <button class="icon-btn" data-close-modal aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-lead">A streak counts <b>verified handoffs</b>, not app opens. This is a pilot reward, not guaranteed income.</p>
+      <ul class="rule-list">
+        <li><b>4 handoffs a month.</b> Only one per day counts. The receiver must confirm the weight and material.</li>
+        <li><b>Month 1 pays ₹20, month 2 pays ₹60, month 3 pays ₹100.</b> Each is that month’s payout — not a bonus stacked on the previous one. Total across three months: ₹180.</li>
+        <li><b>One grace week.</b> A single missed week does not wipe progress; a longer gap resets the streak.</li>
+        <li><b>Anti-fraud.</b> Same generator–collector pairs spiking, impossible weights, reused photos and GPS/time mismatches are flagged. Flagged rows do not count.</li>
+        <li><b>Payout.</b> Starts as points or a voucher. Real-money UPI later goes through a licensed payment partner, not a wallet we run.</li>
+        <li><b>Capped pool.</b> Each month has a fixed reward pool; if it runs out, payouts are proportional.</li>
+      </ul>
+      <div class="form-note"><svg class="icon"><use href="#i-shield"/></svg> Demo values. No money moves in this build — the card shows the rule, not a balance.</div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" data-close-modal>Got it</button>
       </div>
     </div>
   </div>

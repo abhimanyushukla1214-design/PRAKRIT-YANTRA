@@ -4,7 +4,11 @@ A working front-end for the LoopGrid smart waste exchange — built for the **Ha
 
 > Delhi's waste isn't worthless. It's just in the wrong place.
 
-The site has two parts: a marketing/overview page and a fully interactive product demo (household, society and business views).
+The site has three parts: a marketing/overview page, a fully interactive product demo (household, society and business views), and **Awaaz**, a voice layer that turns Hindi/Hinglish/English speech into structured pickups and ledger rows.
+
+**Live demo:** <https://abhimanyushukla1214-design.github.io/PRAKRIT-YANTRA/>
+
+GitHub Pages serves only static files. Awaaz therefore uses browser speech by default there; to use ElevenLabs, deploy `voice_api.py` separately and paste its HTTPS URL into **Awaaz → Voice API settings**.
 
 For the architecture, the AI track and the honest demo-vs-production split, read [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
@@ -67,6 +71,52 @@ No secrets or API keys are needed.
 
 ---
 
+## Run the Awaaz voice layer (optional)
+
+The site works with no backend: Awaaz falls back to the browser's
+`SpeechRecognition` / `SpeechSynthesis`, then to typed text. To use ElevenLabs,
+run the small FastAPI gateway that keeps the key server-side:
+
+```powershell
+# 1. Install the gateway dependencies (separate from Streamlit's)
+pip install -r requirements-voice.txt
+
+# 2. Put the key in the server environment, never in index.html/app.js
+$env:ELEVENLABS_API_KEY = "your-key"
+# Optional free contract test: returns a tone + canned transcript, spends nothing
+# $env:VOICE_MOCK = "1"
+
+# 3. Start the gateway
+uvicorn voice_api:app --reload --port 8000
+```
+
+Then open **Awaaz → Voice API settings**, enter `http://localhost:8000`, and
+press **Test**. The chip turns green when the gateway reports a key. Without a
+key the chip says *Server key missing* and the browser fallback stays active.
+
+| Endpoint | Contract |
+|---|---|
+| `POST /api/voice/tts` | `{text, lang, quality}` → cached `audio/mpeg`; `quality: "high"` only for narration |
+| `POST /api/voice/stt` | multipart `audio`, `lang` → `{text, language, provider}`; audio is not stored |
+| `POST /api/voice/intent` | `{text, lang, pending_task}` → `{intent, confidence, slots, tools, reply}` |
+| `GET /api/voice/health` | capability probe used by the fallback chain |
+
+The gateway is deliberately dumb: it transcribes, speaks and parses intent. The
+confidence gate, hazardous routing, pricing and ledger rules stay in
+LoopGrid's own code. `voice_api.py` mirrors the browser parser so the typed and
+server paths return the same shape.
+
+Cost controls: identical text + voice + model + language is cached once, short
+prompts use Flash, push-to-talk caps a clip at 12 s, and `VOICE_DAILY_CHAR_CAP`
+returns `429` instead of silently overspending. Cached repeats do not count.
+
+**Privacy:** the microphone is push-to-talk, requires the DPDP consent box, and
+raw audio is discarded after transcription. Only the transcript fields needed
+for the request are kept. The spoken receipt hashes the **receipt text**, not the
+audio.
+
+---
+
 ## What's inside
 
 | Route | What it does |
@@ -77,6 +127,7 @@ No secrets or API keys are needed.
 | Marketplace | Filterable listings, search, verified toggle, save/shortlist, listing detail modal with QR + hash timeline |
 | Routes & bins | Stylised South Delhi map, fill levels, route optimiser, skip-under-40% toggle, overflow prediction |
 | Impact | Role-based metrics, monthly diversion chart, material donut, source-level quality score, society leaderboard, co-signed ledger with Merkle anchor, CSV export |
+| Awaaz | Push-to-talk Hindi/Hinglish/English, consent gate, structured pickup draft, confidence gate, spoken receipt hashed to the ledger, segregation coach, cached smart-bin voices, language switch, API settings + fallback chain |
 
 **Demo script for judges (≈90 seconds)**
 
@@ -88,7 +139,9 @@ No secrets or API keys are needed.
 6. **Routes & bins** → **Optimise route** → 14.2 km → 9.6 km, 3 low bins skipped.
 7. **Overview** → point at Rafiq Khan's **collector passport** (reputation from co-signed pickups, UPI payout, Hindi/WhatsApp channels).
 8. **Impact** → point at the **source quality score** (contamination % → score/100) → scroll to the **co-signed ledger** → **Verify anchor** (Merkle root vs public commit) → switch Household / Society / Business → **Export ESG report**.
-9. Optional: topbar role switch, **Redeem** points, mobile bottom nav.
+9. **Awaaz** → tick consent → tap the **“40 kg PET · kal 6 baje”** pill. The result shows the parsed slots, confidence, and the tools that would run. → **Create pickup** → **Co-sign & ledger it**. The spoken receipt appears with a SHA-256 of the receipt **text**, and the new ledger row is marked **next anchor** — it is not folded into today's root.
+10. **Awaaz** → switch to English → **Segregation coach → E-waste → Sunnein**; tap a **smart-bin voice**; show that the caption is always on screen.
+11. Optional: topbar role switch, **Redeem** points, **pilot reward rules** on the points card, mobile bottom nav.
 
 ---
 
@@ -102,6 +155,12 @@ No secrets or API keys are needed.
 - The co-signed ledger, signature chips, collector passport and Merkle anchor are **illustrative UI**. No Ed25519 keys are generated, no signatures are verified, no UPI payment is initiated, and the root is not committed anywhere. The UI says so on the card.
 - The live price feedback uses hand-authored clean/contaminated reference prices, not a market feed.
 - Camera preview is real (`getUserMedia`) but classification still maps to the sample set.
+- **Awaaz is real only when `ELEVENLABS_API_KEY` is set on the FastAPI gateway.** Without it the UI uses browser speech, then typed text. `VOICE_MOCK=1` returns a tone and a canned transcript for contract tests, and the chip says **Mock voice API**. No model was trained for intent parsing; it is deterministic rules.
+- The spoken receipt is a **UI demonstration**: the receipt **text** is hashed in the browser, but no Ed25519 signature is produced and the hash is not committed. New rows are labelled **queued for the next daily anchor** rather than pretending they are already in the root.
+- The streak card is a **pilot rule**, not a balance. No money moves, no reward pool is live, and no UPI payout is initiated.
+- The facility card **does not name a single company**. It links to CPCB/OSM and states the trust rule; the directory is not connected in this build.
+- Accounts are a **single seeded demo user (Ananya R.)**. No OTP is sent, no session is created, and no password is stored. The production auth design is in `ARCHITECTURE.md` §18.
+- Nothing calls a live buyer, sensor, payment rail or SMS gateway.
 
 This is deliberate: the deck and the app should not claim a model or hardware that does not exist yet.
 
@@ -134,7 +193,10 @@ Only `transform` and `opacity` are animated. `will-change` is applied only durin
 ```
 index.html          structure, icon sprite, landing, app shell, modals
 assets/styles.css   design tokens, components, responsive layout, motion
-assets/app.js       state, routing, classifier demo, marketplace, map, charts
+assets/app.js       state, routing, classifier demo, marketplace, map, charts, Awaaz
+voice_api.py        FastAPI gateway: ElevenLabs TTS/STT, deterministic intent, mock mode
+requirements-voice.txt  fastapi, uvicorn, httpx, python-multipart
+.env.example        server-side voice key, models, CORS, daily cap
 streamlit_app.py    Streamlit wrapper: serves the site and frames it full-screen
 requirements.txt    streamlit
 .streamlit/         server + theme config for the wrapper
@@ -163,3 +225,6 @@ No frameworks, no bundler, no network dependency except the Google Fonts link (f
 - Swap the SVG map for Leaflet + OpenStreetMap and an OR-Tools routing call.
 - Persist listings, points and saved items (currently in-memory so every demo starts clean).
 - Replace the demo hash chain with dual-signed Ed25519 handoffs and a daily Merkle anchor before calling the ESG export audited.
+- Add phone-OTP auth (Firebase/Supabase Auth or equivalent), roles and DPDP consent receipts — design in `ARCHITECTURE.md` §18.
+- Load facility records from CPCB/SPCB, municipal MRF lists and OSM, with source + last-verified date and a user report path (§19).
+- Move the voice gateway's rate limit/usage ledger to Redis and add short-lived signed sessions before exposing ElevenLabs Agents tools to the public.
