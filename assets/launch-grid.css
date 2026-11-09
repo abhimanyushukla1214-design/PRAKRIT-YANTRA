@@ -1,0 +1,57 @@
+/* =========================================================
+   LoopGrid — Flagship Launch
+   Built on the flagship launch system (@import "launch.css"),
+   then re-skinned to the LoopGrid house style:
+   deep navy #0B1F3A · forest green #1B5E20 · teal #00897B · mist #F5F8F4
+   Motion, layout, type scale and structure stay identical to the
+   flagship launch build. Only the palette layer changes.
+   ========================================================= */
+
+@import url("launch.css");
+
+:root {
+  --warm: #F5F8F4;
+  --graphite: #0B1F3A;
+  --ember: #1B5E20;
+  --ice: #00897B;
+  --steel: #5C7186;
+  --linen: #EAF1EA;
+  --ink: #0B1F3A;
+}
+
+/* LoopGrid surface tones */
+body { background: var(--warm); }
+
+.mast {
+  background: rgba(245, 248, 244, 0.86);
+  border-bottom: 1px solid var(--line);
+}
+
+.hero {
+  background: radial-gradient(120% 90% at 80% 0%, #ffffff 0%, var(--warm) 55%, #E9F0E9 100%);
+}
+
+.hero-num { color: rgba(11, 31, 58, 0.05); }
+
+.ring {
+  background:
+    repeating-linear-gradient(105deg, rgba(92, 113, 134, 0.55) 0 2px, transparent 2px 9px),
+    radial-gradient(circle at 32% 28%, #d9dfe4 0%, #a8b2ba 34%, #6f7a83 62%, #3a4148 88%, #22272c 100%);
+  border: 1px solid rgba(11, 31, 58, 0.25);
+  box-shadow: 0 40px 90px -30px rgba(11, 31, 58, 0.45), inset 0 0 60px rgba(255, 255, 255, 0.25);
+}
+
+.display { box-shadow: 0 0 44px 8px rgba(27, 94, 32, 0.45); }
+
+.notif {
+  background: rgba(11, 31, 58, 0.92);
+  color: var(--warm);
+  box-shadow: 0 24px 50px -20px rgba(11, 31, 58, 0.5);
+}
+
+.closeup {
+  background: radial-gradient(circle at 34% 30%, #cfd8cf 0%, #9fb3a1 38%, #6e8170 70%, #3d4a3c 100%);
+  box-shadow: 0 60px 120px -40px rgba(11, 31, 58, 0.55);
+}
+
+.drawing svg text { fill: var(--graphite); }
