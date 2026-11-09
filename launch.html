@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[PRODUCT NAME] — Flagship Launch</title>
+  <meta name="description" content="Flagship product launch — one object, one loop, every material.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23FF6A2B'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23F5F3EF'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/launch.css">
+</head>
+<body>
+
+  <!-- ============================================================
+       MASTHEAD
+       ============================================================ -->
+  <header class="mast">
+    <a class="mast-brand" href="#top">
+      <span class="mast-mark" id="mastMark">◐</span>
+      <span class="mast-name" id="mastName">[PRODUCT NAME]</span>
+    </a>
+    <nav class="mast-nav">
+      <a href="#sequence">The Object</a>
+      <a href="#day">The Day</a>
+      <a href="#phone">Alerts</a>
+      <a href="#savings">Savings</a>
+      <a href="#materials">Materials</a>
+      <a href="#specs">Specs</a>
+      <a href="#preorder">Preorder</a>
+    </nav>
+    <a class="mast-cta" href="#preorder">Preorder</a>
+  </header>
+
+  <main id="top">
+
+    <!-- ============================================================
+         1. HERO — product floating over a giant pale number
+         ============================================================ -->
+    <section class="hero" id="hero">
+      <div class="hero-stage" id="heroStage">
+        <div class="hero-glow ice" id="heroGlow"></div>
+        <div class="hero-num" id="heroNum" aria-hidden="true">1</div>
+        <div class="product" id="productHero" aria-label="Product render">
+          <div class="ring"><div class="ring-sheen"></div></div>
+          <div class="dome"></div>
+          <div class="display" id="displayHero">
+            <div class="display-num">37.5<span class="display-unit">°</span></div>
+            <div class="tick" id="tickHero"></div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-copy">
+        <p class="kicker reveal-line" data-line="0">[FLAGSHIP SERIES — 01] · FLAGSHIP PRODUCT LAUNCH</p>
+        <h1 class="reveal-line" data-line="1">[HEADLINE 1 — ONE OBJECT, THE WHOLE SHOW]</h1>
+        <p class="lede reveal-line" data-line="2">[LEDE — PLAIN LANGUAGE SUMMARY OF WHAT IT DOES FOR THE CUSTOMER]</p>
+      </div>
+      <div class="hero-cta reveal-line" data-line="3">
+        <a class="btn btn-ember" href="#preorder">Preorder — [PLACEHOLDER PRICE]</a>
+        <a class="btn btn-ghost" href="#sequence">See the object</a>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         2. PINNED SEQUENCE — four poses, leader lines, glow shift
+         ============================================================ -->
+    <section class="pin-sec" id="sequence">
+      <div class="pin">
+        <div class="pin-inner">
+          <p class="pin-kicker">[THE OBJECT — WHAT IT IS]</p>
+          <h2 class="pin-title reveal-line" data-line="0">[HEADLINE 2 — THE OBJECT]</h2>
+          <div class="stage" id="stage">
+            <div class="spec" id="specA" data-at="0.12"><span class="spec-tag">POSE A · STOCK</span></div>
+            <div class="spec" id="specB" data-at="0.34"><span class="spec-tag">POSE B · WAKE</span></div>
+            <div class="spec" id="specC" data-at="0.55"><span class="spec-tag">POSE C · HEAT</span></div>
+            <div class="spec" id="specD" data-at="0.76"><span class="spec-tag">POSE D · FIELD</span></div>
+            <div class="stage-glow" id="stageGlow"></div>
+            <div class="product" id="productSeq" aria-label="Product render">
+              <div class="ring"><div class="ring-sheen"></div></div>
+              <div class="dome"></div>
+              <div class="display" id="displaySeq">
+                <div class="display-num">37.5<span class="display-unit">°</span></div>
+                <div class="tick" id="tickSeq"></div>
+              </div>
+            </div>
+            <div class="leader" id="leaderA"><span class="leader-tag">A</span></div>
+            <div class="leader" id="leaderB"><span class="leader-tag">B</span></div>
+            <div class="leader" id="leaderC"><span class="leader-tag">C</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         3. PINNED DAY — scrubbed by scroll, huge clock, temp chart
+         ============================================================ -->
+    <section class="pin-sec pin-day" id="day">
+      <div class="pin">
+        <div class="pin-inner day-inner">
+          <div class="day-copy">
+            <p class="pin-kicker">[THE DAY — HOW IT WORKS]</p>
+            <h2 class="pin-title reveal-line" data-line="0">[HEADLINE 3 — THE DAY]</h2>
+            <p class="day-note reveal-line" data-line="1">[LEDE 3 — PLAIN LANGUAGE ON THE DAILY RHYTHM]</p>
+          </div>
+          <div class="day-stage">
+            <div class="clock" id="clockBig">00:00</div>
+            <div class="temp-chart-wrap">
+              <svg class="temp-chart" id="tempChart" viewBox="0 0 600 220" role="img" aria-label="Temperature chart">
+                <defs>
+                  <linearGradient id="tempGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#6BB7FF"></stop>
+                    <stop offset="0.55" stop-color="#6BB7FF"></stop>
+                    <stop offset="0.55" stop-color="#FF6A2B"></stop>
+                    <stop offset="1" stop-color="#FF6A2B"></stop>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="190" x2="600" y2="190" stroke="#1C1D1F" stroke-opacity="0.15"></line>
+                <path id="tempPath" d="M0,160 C60,150 90,120 140,110 S 260,60 320,50 S 460,30 600,20" fill="none" stroke="url(#tempGrad)" stroke-width="3"></path>
+                <circle id="tempDot" cx="0" cy="160" r="6" fill="#6BB7FF"></circle>
+              </svg>
+            </div>
+            <div class="product" id="productDay" aria-label="Product render">
+              <div class="ring"><div class="ring-sheen"></div></div>
+              <div class="dome"></div>
+              <div class="display" id="displayDay">
+                <div class="display-num">37.5<span class="display-unit">°</span></div>
+                <div class="tick" id="tickDay"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         4. PHONE — drawn phone with floating notifications
+         ============================================================ -->
+    <section class="phone-sec" id="phone">
+      <div class="phone-stage">
+        <div class="phone" id="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="phone-notch2"></div>
+            <div class="phone-time" id="phoneTime">09:41</div>
+            <div class="phone-temp" id="phoneTemp">24°</div>
+          </div>
+        </div>
+        <div class="notif notif-1" id="notif1">🔥 <b>Heat spike detected</b> — rerouted to cool mode</div>
+        <div class="notif notif-2" id="notif2">♻️ <b>Collection matched</b> — metal lot accepted</div>
+        <div class="notif notif-3" id="notif3">📊 <b>Savings updated</b> — 92% diverted</div>
+      </div>
+      <div class="phone-copy">
+        <p class="kicker">[ALERTS — WHAT THE CUSTOMER SEES]</p>
+        <h2 class="pin-title reveal-line" data-line="0">[HEADLINE 4 — THE PHONE]</h2>
+        <p class="lede reveal-line" data-line="1">[LEDE 4 — PLAIN LANGUAGE ON THE ALERTS]</p>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         5. SAVINGS — graphite panel, giant gradient %, count-ups, bars
+         ============================================================ -->
+    <section class="savings-sec" id="savings">
+      <div class="savings-panel">
+        <p class="kicker">[SAVINGS — THE NUMBER]</p>
+        <div class="savings-big">
+          <span class="savings-num" id="savingsNum">92%</span>
+          <span class="savings-label">[PLACEHOLDER — % SAVED]</span>
+        </div>
+        <p class="savings-copy">[LEDE 5 — PLAIN LANGUAGE ON SAVINGS]</p>
+        <div class="bars" id="bars">
+          <div class="bar-row"><span>Plastic</span><i style="--h:42%"></i><b>42%</b></div>
+          <div class="bar-row"><span>Paper</span><i style="--h:31%"></i><b>31%</b></div>
+          <div class="bar-row"><span>Metal</span><i style="--h:18%"></i><b>18%</b></div>
+          <div class="bar-row"><span>Glass</span><i style="--h:9%"></i><b>9%</b></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         6. MATERIALS — huge cropped close-up + finish picker
+         ============================================================ -->
+    <section class="materials-sec" id="materials">
+      <div class="materials-stage">
+        <div class="closeup" id="closeup">
+          <div class="closeup-face"></div>
+        </div>
+        <div class="finish-picker">
+          <p class="kicker">[MATERIALS — THE EDGES]</p>
+          <h2 class="pin-title reveal-line" data-line="0">[HEADLINE 5 — MATERIALS]</h2>
+          <div class="finishes" id="finishes">
+            <button class="finish" data-f="ice" style="--f:#6BB7FF"><span></span>Ice Blue</button>
+            <button class="finish" data-f="ember" style="--f:#FF6A2B"><span></span>Ember</button>
+            <button class="finish" data-f="steel" style="--f:#A8ACB1"><span></span>Steel</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         7. SPECS — table beside self-drawing technical drawing
+         ============================================================ -->
+    <section class="specs-sec" id="specs">
+      <div class="specs-grid">
+        <div class="specs-copy">
+          <p class="kicker">[SPECS — THE FACTS]</p>
+          <h2 class="pin-title reveal-line" data-line="0">[HEADLINE 6 — SPECS]</h2>
+        </div>
+        <div class="specs-table-wrap">
+          <table class="specs-table" id="specsTable">
+            <tbody>
+              <tr><td>[SPEC ROW 1 — e.g. Material]</td><td>[VALUE — PLACEHOLDER]</td></tr>
+              <tr><td>[SPEC ROW 2]</td><td>[VALUE — PLACEHOLDER]</td></tr>
+              <tr><td>[SPEC ROW 3]</td><td>[VALUE — PLACEHOLDER]</td></tr>
+              <tr><td>[SPEC ROW 4]</td><td>[VALUE — PLACEHOLDER]</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="drawing" id="drawing">
+          <svg viewBox="0 0 400 300" role="img" aria-label="Technical drawing">
+            <line x1="10" y1="150" x2="390" y2="150" stroke="#1C1D1F"></line>
+            <line x1="200" y1="10" x2="200" y2="290" stroke="#1C1D1F"></line>
+            <circle cx="200" cy="150" r="60" fill="none" stroke="#1C1D1F"></circle>
+            <line x1="200" y1="90" x2="200" y2="210" stroke="#A8ACB1"></line>
+            <text x="204" y="92" class="drawing-label">[PLACEHOLDER — DIMENSION]</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         8. PREORDER — options, live total, FAQ
+         ============================================================ -->
+    <section class="preorder-sec" id="preorder">
+      <div class="preorder-card">
+        <p class="kicker">[PREORDER — JOIN THE SERIES]</p>
+        <h2 class="pin-title reveal-line" data-line="0">[HEADLINE 7 — PREORDER]</h2>
+        <div class="options" id="options">
+          <label class="option"><input type="checkbox" data-opt="base"> Base — [PLACEHOLDER]</label>
+          <label class="option"><input type="checkbox" data-opt="ice"> Ice Blue finish — [PLACEHOLDER]</label>
+          <label class="option"><input type="checkbox" data-opt="ember"> Ember finish — [PLACEHOLDER]</label>
+          <label class="option"><input type="checkbox" data-opt="steel"> Brushed steel — [PLACEHOLDER]</label>
+        </div>
+        <div class="live-total">Total — <b id="liveTotal">[PLACEHOLDER — LIVE TOTAL]</b></div>
+        <div class="faq">
+          <details><summary>[FAQ 1 — PLAIN QUESTION]</summary><p>[ANSWER — PLACEHOLDER]</p></details>
+          <details><summary>[FAQ 2 — PLAIN QUESTION]</summary><p>[ANSWER — PLACEHOLDER]</p></details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============================================================
+       FOOTER — graphite, name huge in brushed steel
+       ============================================================ -->
+  <footer class="footer" id="footer">
+    <div class="footer-mark" id="footerMark">◐</div>
+    <div class="footer-name" id="footerName">[PRODUCT NAME]</div>
+    <p class="footer-note">[FOOTER NOTE — PLAIN LANGUAGE]</p>
+  </footer>
+
+  <script src="assets/launch.js"></script>
+</body>
+</html>
