@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoopStream — 24/7 looping YouTube livestreams</title>
+<meta name="description" content="Turn any pre-recorded video into a 24/7 YouTube livestream that loops forever.">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">
+    <span class="brand-mark">◈</span> Loop<strong>Stream</strong>
+  </a>
+  <nav class="topnav">
+    <a href="#setup">Setup</a>
+    <a href="#live">Live</a>
+    <a href="#features">Features</a>
+  </nav>
+  <div class="status-pill" id="statusPill">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">Idle</span>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <span class="eyebrow">YouTube · 24/7 live · pre-recorded</span>
+    <h1>Any pre-recorded video.<br><em>24/7 live on YouTube.</em></h1>
+    <p class="lede">
+      LoopStream turns a single video file into an infinite YouTube livestream —
+      looping forever, live 24/7, no manual go-live clicks.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-lg" href="#setup">Open the loop dashboard</a>
+      <a class="btn btn-ghost btn-lg" href="#features">See how it works</a>
+    </div>
+    <div class="hero-stats">
+      <div><b>24/7</b><span>looping</span></div>
+      <div><b>1080p · 30fps</b><span>H.264 + AAC</span></div>
+      <div><b>∞</b><span>loop count</span></div>
+    </div>
+  </section>
+
+  <section id="setup" class="section">
+    <div class="section-head">
+      <span class="kicker">Step 01 — Connect</span>
+      <h2>Set up your loop</h2>
+      <p>Paste your YouTube Live stream key, point LoopStream at a video, and start the loop.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3 class="card-title">YouTube stream key</h3>
+        <p class="form-note">Found in YouTube Studio → <b>Create</b> → <b>Go live</b> → <b>Stream key</b>.</p>
+        <div class="key-row">
+          <input id="streamKey" class="input" type="password" placeholder="xxxxxxxx…" autocomplete="off" spellcheck="false" />
+          <button id="keyToggle" class="btn btn-ghost btn-sm" type="button">Show</button>
+          <button id="keyCopy" class="btn btn-ghost btn-sm" type="button">Copy</button>
+        </div>
+        <p class="hint">The key stays on this machine and is only used to build your private RTMP ingest URL.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Video source</h3>
+        <div class="seg" role="tablist">
+          <button class="seg-btn active" data-kind="file" type="button">File</button>
+          <button class="seg-btn" data-kind="url" type="button">URL</button>
+        </div>
+        <input id="sourceValue" class="input" type="text" placeholder="C:\Videos\ambient.mp4  or  https://cdn.example.com/clip.m3u8" spellcheck="false" />
+        <p class="hint">Local file path or direct media URL (MP4 / HLS).</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="startBtn" class="btn btn-accent btn-lg" type="button">Start 24/7 loop</button>
+      <button id="stopBtn" class="btn btn-danger btn-lg" type="button" disabled>Stop loop</button>
+    </div>
+    <p id="setupMsg" class="form-note" aria-live="polite"></p>
+  </section>
+
+  <section id="live" class="section">
+    <div class="section-head">
+      <span class="kicker">Step 02 — Live status</span>
+      <h2>Is it live?</h2>
+      <p>Real-time state of the ffmpeg loop engine pushing to YouTube.</p>
+    </div>
+
+    <div class="card live-card">
+      <div class="live-top">
+        <div class="live-badge" id="liveBadge">
+          <span class="dot" id="liveDot"></span>
+          <span id="liveState">Idle</span>
+        </div>
+        <div class="live-timer" id="liveTimer">00:00:00</div>
+      </div>
+      <div class="live-grid">
+        <div class="live-stat"><small>Uptime</small><b id="liveUptime">—</b></div>
+        <div class="live-stat"><small>Loop mode</small><b>∞ Infinite</b></div>
+        <div class="live-stat"><small>Source</small><b id="liveSource">—</b></div>
+        <div class="live-stat"><small>Encoding</small><b>4.5 Mbps · 1080p30</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="logs" class="section">
+    <div class="section-head">
+      <span class="kicker">Engine</span>
+      <h2>Live ffmpeg logs</h2>
+      <p>Stream output while the loop is running.</p>
+    </div>
+    <div class="card terminal-card">
+      <div class="terminal-bar">
+        <span class="tdot"></span><span class="tdot"></span><span class="tdot"></span>
+        <span class="terminal-title">ffmpeg — loopstream</span>
+      </div>
+      <pre id="logs" class="terminal">Waiting for start signal…</pre>
+    </div>
+  </section>
+
+  <section id="features" class="section">
+    <div class="section-head">
+      <span class="kicker">Why LoopStream</span>
+      <h2>Features that run 24/7</h2>
+    </div>
+    <div class="grid-3">
+      <div class="card feature">
+        <div class="feature-icon">🔁</div>
+        <h3>Infinite loop</h3>
+        <p>ffmpeg <code>-stream_loop -1</code> restarts the pre-recorded video forever — no gaps, no dead air, 24/7.</p>
+      </div>
+      <div class="card feature">
+        <div class="feature-icon">🎬</div>
+        <h3>Live-grade encoding</h3>
+        <p>H.264 (libx264) + AAC audio at ~4.5 Mbps with a low-latency live tune — broadcast quality from a single file.</p>
+      </div>
+      <div class="card feature">
+        <div class="feature-icon">🛡️</div>
+        <h3>Auto-restart</h3>
+        <p>If the stream engine ever crashes, it restarts itself and keeps the loop alive.</p>
+      </div>
+      <div class="card feature">
+        <div class="feature-icon">🔑</div>
+        <h3>Stream key driven</h3>
+        <p>Uses your YouTube Live RTMP stream key — the same one YouTube Studio gives you — over a private ingest URL.</p>
+      </div>
+      <div class="card feature">
+        <div class="feature-icon">📜</div>
+        <h3>Full visibility</h3>
+        <p>Live status, uptime and engine logs in one dashboard while it runs.</p>
+      </div>
+      <div class="card feature">
+        <div class="feature-icon">⚡</div>
+        <h3>Zero babysitting</h3>
+        <p>Start once, walk away. The loop runs unattended overnight and all weekend.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p>LoopStream — pre-recorded video, 24/7 live on YouTube. Built with ffmpeg + Node.</p>
+</footer>
+
+<script src="/assets/app.js"></script>
+</body>
+</html>
