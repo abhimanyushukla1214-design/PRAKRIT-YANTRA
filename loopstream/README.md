@@ -71,6 +71,19 @@ When the engine reports **Live**, YouTube shows your stream. Copy the watch URL 
 
 The `-re` flag paces input at real time (required for live-style pacing), `-stream_loop -1` loops forever.
 
+## Run it on Google Colab (cloud, no PC needed)
+
+The same ffmpeg loop engine can run on a **Google Colab** free cloud runtime — perfect if you don't want to keep a PC running.
+
+1. Open the notebook: [`loopstream/colab/loopstream_colab.ipynb`](colab/loopstream_colab.ipynb) → **File → Save a copy in Drive** (or open directly in Colab via URL).
+2. Mount Google Drive, set **`STREAM_KEY`** and **`SOURCE`**:
+   - `STREAM_KEY` — your YouTube Live stream key.
+   - `SOURCE` — e.g. `/content/drive/MyDrive/your-video.mp4` (Drive) or `/content/your-video.mp4` (uploaded).
+3. Run all cells top-to-bottom. The final cell runs the ffmpeg loop and keeps it alive until you stop it.
+4. The stream pushes to YouTube via `rtmp://a.rtmp.youtube.com/live2/<STREAM_KEY>` — same as local.
+
+Colab free tier: max runtime ~12h per session; the kernel must stay connected.
+
 ## Project structure
 
 ```
