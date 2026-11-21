@@ -84,6 +84,19 @@ The same ffmpeg loop engine can run on a **Google Colab** free cloud runtime —
 
 Colab free tier: max runtime ~12h per session; the kernel must stay connected.
 
+## Keep it running after a PC reboot (local)
+
+If you run the local version and want it to **auto-start after shutdown/reboot**:
+
+1. Right-click `start-loopstream.bat` → **Create shortcut**.
+2. Open **Task Scheduler** → **Create Task**.
+3. Trigger: **At startup** (or **At log on**).
+4. Action: **Start a program** → browse to the `start-loopstream.bat`.
+5. Run with highest privileges if needed.
+6. OK → it will relaunch LoopStream automatically after every reboot.
+
+To stop the stream: open the dashboard and press **Stop loop**. To stop auto-start: disable the task.
+
 ## Project structure
 
 ```
